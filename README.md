@@ -10,15 +10,19 @@ cd Financial-Report-Research-Copilot
 git checkout v1.0-teaching
 ```
 
-**`v1.0-teaching` has not been cut yet as of this writing** — the repository
-currently has `v1.0-prototype` and active work past it. Every command, file
-path, and number in this handbook was checked directly against the running
-repository on 2026-08-25 (`main`, not a tag), not against a pinned
-reference — treat this handbook as accurate to that date rather than to a
-specific commit until `v1.0-teaching` exists. Once it is cut, re-verify this
-handbook against it specifically and update this note; a handbook that
-claims to target a tag it was not actually checked against is exactly the
-kind of silent-drift risk ch.07 documents elsewhere in this project.
+**`v1.0-teaching` exists as of 2026-08-26**, cut on a rebuilt, curated
+repository: the development repo (169 tracked files, three months of
+intermediate result files and one-time scripts) was pruned to the 106 files
+a reader actually needs — full source, tests, the seed snapshot, all six
+eval sets, and a curated evidence chain of 25 result files. Every command,
+file path, and number in this handbook was checked directly against the
+running repository on 2026-08-25 and re-synced against the curated repo on
+2026-08-26. One code change landed with the curation and is reflected in
+ch.03: the two XBRL ingestion scripts were merged into
+`ingest_financial_facts.py`. The project's raw day-by-day development log
+is deliberately not part of the teaching repo — this handbook and the
+repo's own `docs/` (the case study, the audit) carry the distilled record,
+which is the version a reader actually needs.
 
 If something here does not match what you see in the code, the code is
 right and this handbook needs an update — please open an issue.

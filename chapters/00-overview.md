@@ -19,7 +19,7 @@ User → Streamlit (chat + dashboard) → FastAPI → Agent loop
                           (financial_facts · text_chunks · supply_edges)
                                                      ▲
                                     EDGAR ingestion pipeline
-                              (ingest_xbrl · ingest_text · extract_edges)
+                       (ingest_financial_facts · ingest_text · extract_edges)
 ```
 
 Every number the agent states comes from `query_financials`/`compute`
@@ -34,9 +34,9 @@ than silently trusting the model.
 ## Two lines of work, two repositories
 
 - **Product** (this handbook covers it): `Financial-Report-Research-Copilot`
-  — the agent, the eval harness, the dashboard. This handbook targets one
-  pinned reference point in that repo; see the README for which one and why
-  it is not yet a cut tag as of this writing.
+  — the agent, the eval harness, the dashboard. This handbook targets the
+  `v1.0-teaching` tag: a curated rebuild of the development repo (cut
+  2026-08-26), pruned of development-history residue; see the README.
 - **SQLLock study**: `sqllock-grounding-study` — a separate, later controlled
   experiment asking a narrower question ("across four progressively more
   structured ways of giving an LLM agent the same SEC filing facts, where
@@ -55,7 +55,7 @@ than silently trusting the model.
 | Supply-chain edges | 128 total, 103 named |
 | Frozen eval set (`eval_set.json`, v1.3, 33 items) | Tier-1/Tier-2/input-fetch/refusal all 100%; retrieval passage hit 42.9% (noise band, see ch.05); overall 86.7% |
 | Tier-3 graph ablation (`eval_set_tier3.json`, 8 items) | graph-augmented 100% vs. `--no-graph` baseline 12.5% — **+87.5pp**, the graph layer's measured contribution |
-| Unit tests | 129 |
+| Unit tests | 128 (was 129; two ingestion-drift guards merged into one when the two ingestion scripts became one, see ch.03) |
 
 These will have moved by the time you read this — re-check with
 `copilot.eval.harness --out <path>` and this repo's live database rather
@@ -66,7 +66,7 @@ than trusting the table above past the date it was checked.
 Every fact, file path, and number here was checked against the running
 repository (a live `psql` query against the actual database, or a direct
 read of the current source file) rather than reconstructed from the
-project's own engineering log (`CLAUDE.md`) from memory alone — that log is
+project's internal development log from memory alone — that log is
 detailed and reliable as a *history*, but this handbook's job is to describe
 the *current* state, and the two are not always the same thing on a project
 that has been under active, daily development. Where a check could not be

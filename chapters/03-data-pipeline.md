@@ -1,12 +1,12 @@
 # 03 · Data Pipeline
 
-Covers: `pipeline/ingest_xbrl.py`, `pipeline/ingest_text.py`,
+Covers: `pipeline/ingest_financial_facts.py`, `pipeline/ingest_text.py`,
 `pipeline/ingest_item8.py`, `pipeline/embed_chunks.py`,
 `pipeline/extract_edges.py`, `retrieval/{bm25,dense,hybrid}.py`.
 
 ## 3.1 XBRL ingestion → `financial_facts`
 
-`ingest_xbrl.py` pulls each company's `companyfacts` payload from EDGAR and
+`ingest_financial_facts.py` pulls each company's `companyfacts` payload from EDGAR and
 filters it before anything reaches the database — the project's
 "numbers never come from LLM arithmetic" rule starts here, one layer before
 the agent even exists. A fixed whitelist (`us-gaap` namespace only,
@@ -22,14 +22,23 @@ is not a bug — it's the tradeoff of a curated schema over an open-ended one
 — but it means "not in the database" and "not disclosed" are different
 claims, and the agent's refusal language is written to not conflate them.
 
-A separate, real defect fixed in this layer: `financial_facts` originally
-had no tie-breaker for duplicate `(ticker, label, fiscal_year, period_end)`
-keys, and could silently return a wrong value when a filing restated a prior
-period. `pipeline/fix_financial_facts.py` added explicit tag-priority
-resolution and a duration check (catching quarterly figures that had been
-leaking into annual-looking rows) — see that module for the fix, kept
-deliberately separate from this project's own ingestion path so it can be
-re-run independently.
+Two real defects were found and fixed in this layer (2026-07-30): a
+**duration mismatch** (EDGAR sometimes reports a quarterly-duration fact
+under the annual figure's tag, with a matching period_end — caught by
+requiring 10-K duration facts to span 355–380 days) and a **tag collision**
+(multiple XBRL tags mapping to one label, where for several labels the
+collision was two genuinely different financial concepts, not synonyms —
+resolved by splitting four labels and giving three an explicit tag-priority
+order). The fixes originally lived in a separate `fix_financial_facts.py`
+alongside the original, uncorrected `ingest_xbrl.py` — which meant every
+re-run was one wrong module name away from silently re-inserting the rows
+the corrected logic rejects. As of `v1.0-teaching` the two are merged into
+the single `ingest_financial_facts.py`: corrected logic, `companies`
+upsert, and empty-database bootstrap in one script, with no other ingestion
+path left to reach for. The module's docstring carries the full defect
+history; a drift guard in `tests/test_constants_match_data.py` pins its
+cluster dict to the canonical source so a local copy can never quietly
+reappear.
 
 ## 3.2 10-K text ingestion → `filings` + `text_chunks`
 
@@ -93,7 +102,7 @@ gate was in place when a given row was written.
 
 **A worked example, because the mechanism is easier to understand from a
 real failure than from the code alone.** An audit of the existing
-`supply_edges` table (2026-07-15/16, documented in full in `CLAUDE.md`)
+`supply_edges` table (2026-07-15/16)
 found three distinct, real defect classes in already-written rows, none of
 them hypothetical:
 

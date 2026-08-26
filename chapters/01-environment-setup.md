@@ -6,10 +6,17 @@ Covers: `pyproject.toml`, `uv.lock`, `.env.example`, `config.py`,
 ## 1.1 Install
 
 ```bash
-git clone <repo-A-url>
-cd <repo-A-name>
+git clone https://github.com/renxiang-ch/Financial-Report-Research-Copilot.git
+cd Financial-Report-Research-Copilot
+git checkout v1.0-teaching
 uv sync
 ```
+
+Plain `uv sync` installs everything the handbook's path needs (seed loading,
+embeddings, the app, the eval harness). To also run the repo's 128-test
+suite or the linter, install the dev extra — `uv sync --extra dev` — which
+carries `pytest` and `ruff`; this is exactly what the repo's CI does (and
+omitting it is exactly how CI's first-ever run failed).
 
 `uv` reads `pyproject.toml` (the human-declared dependency list) and
 `uv.lock` (every dependency pinned to an exact version + hash) and builds a
@@ -37,9 +44,16 @@ cp .env.example .env
 | Variable | Controls |
 |---|---|
 | `OPENAI_API_KEY` | The agent's default model (`gpt-4o-mini`) and the eval harness's own model calls. Required for anything that calls the LLM. |
-| `ANTHROPIC_API_KEY` | Only used if you explicitly pass a `claude*` model id to the agent (`agent.ask(question, model="claude-...")`); the default path never touches it. |
+| `OPENAI_BASE_URL` | Optional. Empty means api.openai.com; set it to use any OpenAI-compatible aggregator endpoint instead. |
 | `DATABASE_URL` | `postgresql://user:password@host:5432/financial_copilot` — everything downstream in this chapter depends on this pointing at a real, reachable Postgres instance with `pgvector` installed. |
+| `API_KEY` | Optional. If set, `/ask` requires it in the `X-API-Key` header; empty means open access, which is fine locally. |
+| `API_URL` / `APP_PASSWORD` / `AVAILABLE_MODELS` | Frontend-only, all optional: where the Streamlit UI finds the API, an optional password gate (skipped entirely when unset), and the chat model picker's options. |
 | `LANGFUSE_*` | Optional observability; the app runs without it. |
+
+(An earlier version of this template listed `ANTHROPIC_API_KEY`; the
+Anthropic code path was removed with the model-router redesign, and nothing
+in the codebase reads that variable anymore — the current `.env.example`
+matches what the code actually reads, field for field.)
 
 ## 1.3 Create the database and load the snapshot
 

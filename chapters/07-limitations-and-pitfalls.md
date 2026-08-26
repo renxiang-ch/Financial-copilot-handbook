@@ -1,7 +1,8 @@
 # 07 · Limitations & Pitfalls
 
-No single owning file — collected from every chapter plus the project's own
-engineering log (`CLAUDE.md` in repo A).
+No single owning file — collected from every chapter plus the project's
+internal development log; the teaching repo deliberately ships the
+distilled record — its `docs/` and result files — rather than the raw log.
 
 ## A note on structure
 
@@ -80,9 +81,11 @@ writing this handbook, is *already* out of date relative to the project's
 own engineering log: it still attributes a routing-cost figure to a router
 implementation that has since been rebuilt on top of `slots.py` (ch.04
 §4.3), and doesn't yet mention two items the engineering log documents as
-found and still open. Read `CLAUDE.md`'s most recent entries directly, not
-this section, for the current state — as of the last check, the open items
-included:
+found and still open. For the current state, don't read this section alone:
+inside the teaching repo, the freshest ground truth is the latest regression
+result files (`data/results/*_clarify_regression.json`) and the dated
+postscripts in `docs/simplification-audit.md`. As of the last check, the
+open items included:
 
 - **Relationship-direction inversion in supply-chain answers.** A supplier's
   own dependency percentage can, in a documented failure case, be applied to
