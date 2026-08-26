@@ -1,5 +1,10 @@
 # 01 · Environment Setup
 
+**What you'll build**: a fully running local instance — API, Streamlit
+frontend, and a populated database — that can already answer questions,
+before you've read a line of the agent's own code. Chapters 02–05 explain
+*how* it works; this chapter only gets it *running*.
+
 Covers: `pyproject.toml`, `uv.lock`, `.env.example`, `config.py`,
 `storage/schema.py`, `pipeline/seed.py`, `start.ps1`.
 
@@ -121,7 +126,7 @@ streamlit run frontend.py`. See ch.07 for the specific Windows pitfall
 `start.ps1`'s port-killing step exists to prevent (a stale Streamlit
 process surviving a restart and corrupting its own internal page table).
 
-## 1.6 Verify
+## Checkpoint
 
 ```bash
 PYTHONUTF8=1 uv run --active python -m copilot.eval.harness --out /tmp/check.json
@@ -138,9 +143,12 @@ $env:PYTHONUTF8="1"; uv run --active python -m copilot.eval.harness --out /tmp/c
 > `cp1252` codec, which raises an encoding error on those characters without
 > this flag.
 
-Expect Tier-1/Tier-2/input-fetch/refusal accuracy at 100% and overall
-accuracy in the high 80s — see Appendix B for the exact current numbers and,
-importantly, which of these figures is a fixed target versus a noise band.
-A retrieval-accuracy figure noticeably below its historical band (25–62.5%)
-is not automatically a broken setup — read ch.05 §5.1 and §5.3 before
-concluding something is wrong.
+**Pass criteria**: Tier-1/Tier-2/input-fetch/refusal accuracy at 100% and
+overall accuracy in the high 80s — see Appendix B for the exact current
+numbers and, importantly, which of these figures is a fixed target versus a
+noise band. A retrieval-accuracy figure noticeably below its historical band
+(25–62.5%) is **not** automatically a broken setup — read ch.05 §5.1 and
+§5.3 before concluding something is wrong. If Tier-1/Tier-2/refusal are
+anything less than 100%, stop here and re-check ch.01 §1.3's fingerprint
+match before moving on — the environment, not the agent, is the more likely
+cause this early.

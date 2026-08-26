@@ -103,15 +103,15 @@ SELECT count(*) FROM supply_edges WHERE chunk_id IS NOT NULL;
 -- 33
 ```
 
-**Every single non-null `chunk_id` in the current database points at a row
-that no longer exists** — not a rare edge case, the entire non-null
-population. This is a real, silent consequence of the schema gap
-(`text_chunks` rows can be deleted or renumbered by a re-indexing/
-re-embedding pass, as has happened during this project's retrieval-layer
-work, with nothing enforcing that `supply_edges.chunk_id` stays valid) — and
-it is currently harmless only because nothing in the running product reads
-`supply_edges.chunk_id` for anything; every citation the product actually
-displays comes from `accn`/`source_text` on the same row, not from a
-`text_chunks` join. Do not add a feature that assumes `chunk_id` resolves to
-a live row without checking first — it does not, for any row in the current
-database.
+> **Every single non-null `chunk_id` in the current database points at a
+> row that no longer exists** — not a rare edge case, the entire non-null
+> population. This is a real, silent consequence of the schema gap
+> (`text_chunks` rows can be deleted or renumbered by a re-indexing/
+> re-embedding pass, as has happened during this project's retrieval-layer
+> work, with nothing enforcing that `supply_edges.chunk_id` stays valid) —
+> and it is currently harmless only because nothing in the running product
+> reads `supply_edges.chunk_id` for anything; every citation the product
+> actually displays comes from `accn`/`source_text` on the same row, not
+> from a `text_chunks` join. **Do not add a feature that assumes `chunk_id`
+> resolves to a live row without checking first** — it does not, for any
+> row in the current database.

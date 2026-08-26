@@ -1,7 +1,10 @@
 # 02 · Data Sources
 
-No code file owns this chapter — it is the knowledge background the pipeline
-chapter (ch.03) assumes.
+**What you'll build**: nothing yet, deliberately — this chapter is the
+background knowledge ch.03's pipeline assumes you already have. No code
+file owns it. Skip it if you already know what a customer-concentration
+disclosure is and why ASC 280 makes it extractable; come back if ch.03's
+whitelist or the company-tier table stops making sense.
 
 ## SEC EDGAR: two different APIs for two different kinds of fact
 
@@ -81,3 +84,14 @@ financial_facts WHERE form='10-K'`:
 > above into anything downstream that needs to stay current. A fixed list
 > silently drifting from the live data it was copied from is the single most
 > recurring defect class in this project's history (ch.07).
+
+## Checkpoint
+
+No command here — this chapter has no artifact of its own to run. The
+self-check is conceptual: you should be able to explain, without looking
+back, why a `table_only` fact (§ above) can't just be added to
+`financial_facts` with a slightly wider XBRL-tag whitelist, and why an
+`unnamed` disclosure (same section) is excluded from `graph_query` results
+rather than shown with a caveat. Both answers are load-bearing for
+ch.03's design — if either feels shaky, that's the signal to re-read this
+chapter rather than push forward into the pipeline that assumes it.

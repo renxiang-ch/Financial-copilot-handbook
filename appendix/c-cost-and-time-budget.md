@@ -13,12 +13,12 @@ past the date this appendix was written (2026-08-25).
 | `eval_set_v2.json` run (13 items) | $0.016 | 51.0s total, 3.92s/item avg |
 | `eval_set_multiturn.json`, full 5-repeat pass (9 scored turns × 5 runs, why below) | $0.056 | — |
 
-**One-line total for "clone to first successful eval run"**: install +
-database setup + seed load + embedding generation is free (local
-model/data, no paid API calls) and dominated by wall-clock time (embedding
-generation, tens of minutes), not cost; the first `eval_set.json` run that
-actually confirms the environment is correct costs on the order of $0.03
-and takes under two minutes.
+> **One-line total for "clone to first successful eval run"**: install +
+> database setup + seed load + embedding generation is free (local
+> model/data, no paid API calls) and dominated by wall-clock time (embedding
+> generation, tens of minutes), not cost; the first `eval_set.json` run that
+> actually confirms the environment is correct costs on the order of $0.03
+> and takes under two minutes.
 
 **Why this project runs the multi-turn set's `--repeat 5` deliberately
 rather than by default on every change**: at roughly 5× a single-run cost

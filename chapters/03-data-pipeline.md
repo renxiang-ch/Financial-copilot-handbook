@@ -1,8 +1,59 @@
 # 03 · Data Pipeline
 
+**What you'll build**: an understanding of — and the ability to re-run
+pieces of — the pipeline that turns raw EDGAR filings into the three tables
+the agent actually queries. You already loaded the finished output in
+ch.01 §1.3; this chapter is where that snapshot came from and why it isn't
+a re-run target (§3.5).
+
 Covers: `pipeline/ingest_financial_facts.py`, `pipeline/ingest_text.py`,
 `pipeline/ingest_item8.py`, `pipeline/embed_chunks.py`,
 `pipeline/extract_edges.py`, `retrieval/{bm25,dense,hybrid}.py`.
+
+## 3.0 Three parallel paths, one shared rule
+
+EDGAR gives up its data in two fundamentally different shapes, and this
+project builds a third data type *on top of* one of them — three paths,
+each landing in its own table, each read by a different agent tool:
+
+```mermaid
+flowchart LR
+    subgraph Structured["Structured path — §3.1"]
+        X1[EDGAR XBRL companyfacts API] --> X2[ingest_financial_facts.py<br/>whitelist + dedup]
+        X2 --> X3[(financial_facts)]
+        X3 --> X4[query_financials / compute]
+    end
+    subgraph Unstructured["Unstructured path — §3.2–3.3"]
+        T1[EDGAR 10-K HTML] --> T2[ingest_text.py<br/>section + chunk]
+        T2 --> T3[(text_chunks)]
+        T3 --> T4[embed_chunks.py]
+        T4 --> T5[retrieve_text — hybrid BM25 + dense]
+    end
+    subgraph Relationship["Relationship path — §3.4"]
+        T3 -.same HTML.-> R1[extract_edges.py<br/>LLM extraction + quality gate]
+        R1 --> R2[(supply_edges)]
+        R2 --> R3[graph_query]
+    end
+
+    style X3 fill:#e3f2fd,stroke:#1565c0
+    style T3 fill:#e3f2fd,stroke:#1565c0
+    style R2 fill:#e3f2fd,stroke:#1565c0
+```
+
+The rule that holds across all three, stated once here because every
+section below assumes it: **a number reaches the agent only through a
+table a SQL tool can query — never through the model reading raw HTML at
+answer time.** The structured path exists because XBRL already comes
+machine-readable; the unstructured and relationship paths exist precisely
+*because* their source data does **not** come that way, and each does its
+own work (chunking + embedding; LLM extraction + a quality gate that can
+reject a write) to get from "prose" to "a row a tool can query
+deterministically." Retrieval (§3.3) is the one partial exception — it
+still returns prose, not a row — which is exactly why `graph_query` (the
+relationship path) exists as a *separate*, stronger guarantee for the one
+category of fact (supplier↔customer dependency) that this project decided
+was worth extracting all the way to a structured row instead of leaving it
+to retrieval alone.
 
 ## 3.1 XBRL ingestion → `financial_facts`
 
@@ -15,12 +66,13 @@ canonical labels served (`SELECT DISTINCT label FROM financial_facts WHERE
 form='10-K'` — check this directly rather than trusting a hardcoded list
 anywhere, including this sentence, past the date it was written).
 
-This whitelist is also the mechanism behind a real, measured coverage gap: a
-number can be fully XBRL-tagged in the source filing and still never reach
-`financial_facts`, simply because its specific tag isn't in the dict. This
-is not a bug — it's the tradeoff of a curated schema over an open-ended one
-— but it means "not in the database" and "not disclosed" are different
-claims, and the agent's refusal language is written to not conflate them.
+> **This whitelist is also the mechanism behind a real, measured coverage
+> gap**: a number can be fully XBRL-tagged in the source filing and still
+> never reach `financial_facts`, simply because its specific tag isn't in
+> the dict. This is not a bug — it's the tradeoff of a curated schema over
+> an open-ended one — but it means "not in the database" and "not
+> disclosed" are different claims, and the agent's refusal language is
+> written to not conflate them.
 
 Two real defects were found and fixed in this layer (2026-07-30): a
 **duration mismatch** (EDGAR sometimes reports a quarterly-duration fact
@@ -149,3 +201,20 @@ this project draws between two words that sound like synonyms:
 Conflating the two is a common failure mode in data-engineering
 reproducibility claims generally, and this project says plainly which one it
 is rather than letting a reader assume the stronger claim.
+
+## Checkpoint
+
+Zero-cost, deterministic, no LLM call — scans the whole `supply_edges`
+table against its own quality gate rather than trusting whatever is
+currently written:
+
+```bash
+uv run --active python -m copilot.pipeline.extract_edges --audit
+```
+
+**Pass criteria**: reports every row as clean against
+`verify_source_text_consistency()` (§3.4) — a suspicious row here means
+either a real data defect (the kind §3.4's worked example walks through)
+or that your local `supply_edges` has diverged from the shipped seed. Either
+way, treat a non-clean result as something to resolve before trusting
+`graph_query`'s output in ch.04, not something to note and move past.

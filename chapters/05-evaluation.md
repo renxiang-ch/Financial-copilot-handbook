@@ -1,10 +1,45 @@
 # 05 · Evaluation
 
+**What you'll build**: the judgment to reach for the right one of four
+measurement tools this project uses — unit test, probe, eval harness run,
+or ablation — instead of defaulting to "just run the eval set" for
+questions it structurally cannot answer (§5.3 has a documented case where
+that default produced a false negative). By the end you'll have run at
+least one of each.
+
 Covers `eval/harness.py`, `eval/harness_tier3.py`, `eval/harness_router.py`,
 five `eval/probe_*.py` modules, and `data/datasets/*.json` — six sets, listed
 below (an earlier draft of this handbook's own mapping missed two of them —
 check the directory directly rather than trusting any fixed list, including
 this one, past the date it was written).
+
+## 5.0 Which measurement tool, when
+
+Four tools, each answering a different question about a change — reaching
+for the wrong one either wastes money (an eval harness run where a probe
+would do) or hides the real answer (an eval harness run where the true
+effect is narrower than the metric's own noise band, §5.3):
+
+```mermaid
+flowchart TD
+    Q{"What do you need<br/>to know about a change?"}
+    Q -->|"Pure code logic,<br/>no LLM call involved"| UT["Unit test<br/>tests/test_*.py (pytest)"]
+    Q -->|"One specific mechanism<br/>(routing / retrieval / clarify triggers)"| P["Probe<br/>eval/probe_*.py — zero LLM cost, deterministic"]
+    Q -->|"End-to-end behavior across<br/>a realistic question set"| H["Eval harness run<br/>eval/harness*.py — LLM-judged, costs real money"]
+    Q -->|"Does component X actually<br/>contribute, not just correlate"| A["Ablation<br/>harness with X stripped, e.g. --no-graph"]
+
+    style P fill:#e8f5e9,stroke:#2e7d32
+    style A fill:#fce4ec,stroke:#c2185b
+```
+
+The probe branch exists *because* the harness branch has real limits: this
+project's own retrieval and multi-turn metrics have noise bands wide enough
+to swallow most real improvements (§5.3), so a probe isolates the specific
+mechanism deterministically instead of gambling on one LLM-judged run.
+Ablations have the same problem one level up — §5.5's multi-turn example
+needed five repeated runs before the true effect separated from noise at
+all, which is why `--repeat N` exists as an ablation option, not a
+probe-level one.
 
 ## 5.1 The eval sets
 
@@ -86,10 +121,12 @@ PYTHONUTF8=1 uv run --active python -m copilot.eval.harness --out data/results/e
 ```
 
 Every result file records a `db_fingerprint` (row counts across the core
-tables at run time) alongside the scores. **Before comparing two result
-files, compare their fingerprints first** — a score delta measured across
-two different database states is not a valid before/after comparison, and
-nothing else in the file will tell you this happened unless you check.
+tables at run time) alongside the scores.
+
+> **Before comparing two result files, compare their fingerprints first** —
+> a score delta measured across two different database states is not a
+> valid before/after comparison, and nothing else in the file will tell you
+> this happened unless you check.
 See Appendix B for the current expected-value table and, critically, which
 figures in it are fixed targets versus reported noise bands — several
 metrics here have been saturated at 100% for months and carry little signal
@@ -113,3 +150,27 @@ saturated and should not be read as if they were.
   measured instance of exactly the problem §5.3 exists to solve, and the
   reason a multi-turn evaluation claim in this project is never made from a
   single run.
+
+## Checkpoint
+
+Run one of each of the four tools from §5.0, cheapest first:
+
+```bash
+# 1. Unit tests (no LLM, seconds)
+uv run --active pytest tests/ -q
+
+# 2. A probe (no LLM, deterministic)
+uv run --active python -m copilot.eval.probe_router --out /tmp/probe_router.json
+
+# 3. An eval harness run (LLM-judged, ~$0.03, ~2 min — see Appendix C)
+PYTHONUTF8=1 uv run --active python -m copilot.eval.harness --out /tmp/eval.json
+
+# 4. An ablation (LLM-judged, isolates the graph layer's own contribution)
+uv run --active python -m copilot.eval.harness_tier3 --no-graph --out /tmp/no_graph.json
+```
+
+**Pass criteria**: (1) all pass, (2) 20/20, (3) matches Appendix B's bands
+(numeric/refusal at 100%, retrieval inside 25–62.5%), (4) noticeably worse
+than the graph-augmented default — a *low* score here is what "pass" looks
+like, since the point of this specific ablation is to confirm the baseline
+is genuinely weaker without the graph layer, not that it's good.

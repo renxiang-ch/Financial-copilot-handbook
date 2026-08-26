@@ -1,5 +1,12 @@
 # 07 · Limitations & Pitfalls
 
+**What you'll build**: nothing — this is a reference chapter, read when a
+bug looks familiar or before extending a part of the system this section
+flags as weakly guarded. The closest thing to a checkpoint is
+`test_constants_match_data.py` (ch.03's audit + this chapter's own
+recurring-defect section share the same underlying concern), already run
+as part of ch.01's test suite.
+
 No single owning file — collected from every chapter plus the project's
 internal development log; the teaching repo deliberately ships the
 distilled record — its `docs/` and result files — rather than the raw log.
@@ -75,17 +82,27 @@ sync (`test_constants_match_data.py` exists specifically for this).
 
 ## Known, unfixed, currently
 
-**This section is, itself, a live example of the drift problem above** —
-the product repo's own README "Known Limitations" section, checked while
-writing this handbook, is *already* out of date relative to the project's
-own engineering log: it still attributes a routing-cost figure to a router
-implementation that has since been rebuilt on top of `slots.py` (ch.04
-§4.3), and doesn't yet mention two items the engineering log documents as
-found and still open. For the current state, don't read this section alone:
+> **This section is, itself, a live example of the drift problem above** —
+> the product repo's own README "Known Limitations" section, checked while
+> writing this handbook, is *already* out of date relative to the project's
+> own engineering log: it still attributes a routing-cost figure to a router
+> implementation that has since been rebuilt on top of `slots.py` (ch.04
+> §4.3), and doesn't yet mention two items the engineering log documents as
+> found and still open.
+
+For the current state, don't read this section alone:
 inside the teaching repo, the freshest ground truth is the latest regression
 result files (`data/results/*_clarify_regression.json`) and the dated
 postscripts in `docs/simplification-audit.md`. As of the last check, the
-open items included:
+open items included two that share a pattern worth naming — **individually
+grounded, collectively wrong**: every number involved traces to a real tool
+call, so §4.5's grounding check passes cleanly, and the answer is still
+wrong because the failure lives one level up, in *how* those grounded
+numbers get applied or combined, not in whether they're grounded (the two
+items below are different specific mechanisms within that same blind spot —
+one a wrong entity/year binding, the other a wrong formula — not
+duplicates of each other) — plus one that is a genuinely separate
+methodological gap, not another instance of this one:
 
 - **Relationship-direction inversion in supply-chain answers.** A supplier's
   own dependency percentage can, in a documented failure case, be applied to

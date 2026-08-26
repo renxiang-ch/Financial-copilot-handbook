@@ -1,10 +1,47 @@
 # 04 · Agent System
 
+**What you'll build**: the ability to trace any answer this agent gives
+back through exactly which module produced each part of it — which one
+decided *what* to ask, which one decided *which tool*, and which one
+checked the answer *afterward*. That trace is what ch.00's walkthrough
+showed for one question; this chapter is where each stage in it actually
+lives.
+
 Covers all modules in `src/copilot/agent/`: `agent.py`, `tools.py`,
 `slots.py`, `grounding.py`, `authority.py`, `clarify.py`, `conversation.py`,
 `provenance.py`, `model_router.py`. This chapter is bigger than the others —
 most of the actual engineering decisions in this project live here, and six
 of these nine files did not exist in an earlier version of this system.
+
+## 4.0 The minimal agent, and everything layered on top
+
+**§4.1 alone is a complete, working agent**: a model with four tools and a
+loop that keeps calling them until it produces an answer. Everything in
+§4.2–§4.6 is a *reliability layer* added on top after a specific, observed
+way the minimal version failed — none of it is required for the agent to
+run, all of it is required for the answers to be trustworthy. Reading the
+rest of this chapter as "here's what got bolted on, and why" rather than
+"here are six independent features" is the intended frame:
+
+```mermaid
+flowchart TD
+    Q["User question"] --> Slots["slots.py — §4.2<br/>parse companies / metric / relation"]
+    Hist["Prior turns, if any — §4.4"] -.carried context.-> Slots
+    Slots --> Route["route_question() — §4.3<br/>force-route, or defer to the model"]
+    Route --> Loop["THE MINIMAL AGENT — §4.1<br/>tool-calling loop, 4 tools, 10-round breaker"]
+    Model["model_router.py — §4.6<br/>which model; never auto-escalated"] -.-> Loop
+    Loop --> Verify["grounding.py + authority.py — §4.5<br/>check the finished trace"]
+    Verify --> A["Cited answer, or a flagged gap"]
+
+    style Loop fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
+    style Verify fill:#fff8e1,stroke:#f9a825
+```
+
+Each layer's own section states plainly what specific failure it exists to
+close — §4.2's `unaccounted` field, §4.3's 38.9%-vs-100% measured gap,
+§4.5's ungrounded-number catch — because a reliability layer justified only
+by "more robustness is good" is exactly the kind of thing this project's
+own history (ch.07) warns against adding without a measured reason.
 
 ## 4.1 The loop and the tools
 
@@ -200,3 +237,21 @@ What this system does instead is verify (§4.5) — detection is the part
 worth building; automatic escalation was a guess dressed as a policy. What
 remains is `select_model(requested)`: an explicit model choice is always
 honored; absent one, `DEFAULT_MODEL = "gpt-4o-mini"`.
+
+## Checkpoint
+
+Zero-cost, deterministic, no LLM call — the same probe that measured §4.3's
+38.9%-vs-100% finding, re-run against the router as it exists now:
+
+```bash
+uv run --active python -m copilot.eval.probe_router --out /tmp/probe_router.json
+```
+
+**Pass criteria**: 20/20 (see Appendix B). This is one of the few numbers in
+this handbook with *zero* tolerance for run-to-run variance — nothing about
+a deterministic regex-and-slots probe permits it to move, so anything less
+than 20/20 is a real regression to chase down, not noise to shrug off (a
+distinction ch.05 §5.3 makes explicit, and this probe is the worked
+example). Ch.05 covers where this probe fits among the project's other
+measurement tools — this checkpoint is here so you run it once with a
+concrete module (routing) already in hand, before that fuller picture.
