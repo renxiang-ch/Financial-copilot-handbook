@@ -1,130 +1,363 @@
-# 07 · Limitations & Pitfalls
+# 07 · Reliability Boundaries and Failure Modes
 
-**What you'll build**: nothing — this is a reference chapter, read when a
-bug looks familiar or before extending a part of the system this section
-flags as weakly guarded. The closest thing to a checkpoint is
-`test_constants_match_data.py` (ch.03's audit + this chapter's own
-recurring-defect section share the same underlying concern), already run
-as part of ch.01's test suite.
+**What you'll build**: nothing new — this chapter no longer introduces
+system capabilities. It answers a harder, more important question
+directly:
 
-No single owning file — collected from every chapter plus the project's
-internal development log; the teaching repo deliberately ships the
-distilled record — its `docs/` and result files — rather than the raw log.
+> **When we call this agent "verifiable," where does that guarantee
+> actually stop?**
 
-## A note on structure
+The system reduces the model's opportunity to state unverified facts
+through SQL/XBRL access, a structured relationship table, tool-call
+traces, and post-hoc verification. But "a number traces back to a real
+tool call" is not the same claim as "the whole answer is semantically
+correct." This chapter does not lump every gap into one bucket labeled
+"bug." It separates four different kinds of boundary:
 
-An earlier draft of this handbook proposed a single sentence here: "every
-data asset the pipeline produces has a mechanism in evaluation guarding it."
-**That sentence is not true as written**, and would actively mislead a
-reader into over-trusting the weaker guards below. Guard strength varies
-enormously across this project — some checks are deterministic and currently
-airtight, some are LLM-judged and sit inside a noise band wider than most
-real changes, and at least one important behavior (multi-turn fiscal-year
-inheritance, last row of the table below) is enforced by nothing stronger
-than a prompt instruction the model has been observed to override.
+- issues already **structurally prevented**
+- issues that are **detected, but not yet fully blocked**
+- **residual risk the system accepts and surfaces to the user**, by design
+- **open problems** in evaluation or data coverage, not yet resolved
 
-| Data asset / behavior | What guards it | Guard strength |
-|---|---|---|
-| Tier-1/2 numeric answers (`eval_set.json`) | LLM-judged harness | Strong signal historically, but **saturated at 100% for months** — carries little power to catch a *new* regression, since it has had no headroom to move in either direction |
-| Tool routing | `probe_router.py`, deterministic, zero LLM cost | Strong and current (20/20 at last check) — this is the guard other checks in this project should be modeled after |
-| Retrieval passage-hit | LLM-judged harness | **Weak** — historical band 25–62.5%, wider than nearly every real improvement this project has measured against it (§05 §5.3) |
-| Retrieval chunk-reachability (does the right chunk survive to top-k) | `probe_retrieval.py` / `probe_truncation.py`, deterministic | Strong and specific, but narrower in scope than "retrieval quality" as a whole |
-| Supply-edge citation grounding | `verify_source_text_consistency()` gate at write time, plus `--audit` mode | Strong on *this specific claim* (does the stored number appear in its own cited sentence) |
-| Answer-level number grounding | `grounding.py::verify_answer()` | Catches an ungrounded number; does **not** catch correct arithmetic over the wrong input in general (§04 §4.5) |
-| `compute()` formula validity | `authority.py::classify()` | Detects and labels an *unsourced* formula; does not block it or correct it — detection only |
-| Multi-turn fiscal-year inheritance | A prompt instruction only, no structural enforcement | **Weakest guard in this list** — measured to fail on the order of 1 in 5 runs, where the model explicitly states it is overriding the carried context and reverts to the most recent fiscal year anyway |
+The closest thing to a runnable checkpoint for this chapter is
+`test_constants_match_data.py` (§7.9), already part of ch.01's test suite —
+no new command here.
 
-## The recurring defect class
+## 7.1 What the system actually guarantees
 
-**"A hardcoded inventory drifts from the data it describes"** is the single
-most-repeated failure pattern in this project's history — not a one-off bug,
-a *class*, recurring roughly ten times across the project's log with the
-same shape each time: something enumerates a fixed list (companies, colors,
-tool categories, alias mappings) at one point in time, the underlying data
-grows or changes, and nothing re-checks the list against the data it was
-supposed to describe. Three concrete instances, with root cause and fix,
-because the pattern is easier to recognize from real examples than from the
-name alone:
+The current system provides several strong guarantees. Every financial
+number must come from `query_financials` or `compute`, never generated
+from the model's memory. Every supply-chain relationship must come from
+`graph_query` against `supply_edges`, and each edge carries the source
+SEC filing's accession number and `source_text`.
 
-1. **A dashboard supplier dropdown was populated from a fixed
-   ticker→color mapping table**, built for visual consistency, not as a
-   source of truth for which suppliers exist. As the underlying company set
-   grew, the dropdown silently continued to only offer the original
-   companies — a real supplier with real data was invisible in the UI, not
-   because of a bug in how it was queried, but because nothing had ever
-   queried it; the dropdown's contents came from a list that was never the
-   live company set to begin with. Fixed by populating the dropdown from a
-   live `SELECT DISTINCT` against the company table, with the color mapping
-   kept only for its actual job (assigning a color), no longer doing double
-   duty as an inventory.
-2. **The customer-alias dictionary in `extract_edges.py`** (ch.03 §3.4) had
-   no entry for Huawei — not a US-listed ticker, so it had no natural
-   canonical key — and the same real customer was written to `supply_edges`
-   under three different literal strings across different extraction runs,
-   including one LLM-invented ticker that happens to collide with an
-   unrelated real company on a different exchange. The dictionary wasn't
-   wrong when written; it was written once and never revisited as new
-   entities appeared in new filings.
-3. **`model_router.py`'s removed tiering table** (ch.04 §4.6) assigned every
-   question category to the same cost tier — a table that, checked against
-   which categories actually existed, covered 100% of them with one value,
-   making the table itself dead weight rather than a real routing decision.
-   Caught by asking "does this configuration make a decision, or does
-   everything just fall through to the same place" before shipping it, not
-   after.
+Second, `grounding.py::verify_answer()` checks, after the answer is
+generated, whether every number and citation in the final text actually
+appears in this run's own tool-call trace. If the model states a number no
+tool result ever produced, this layer catches it.
 
-The general lesson each instance shares: a fixed list is a snapshot, and a
-snapshot with no mechanism to re-check itself against live data will
-eventually silently disagree with it. Where this project has fixed the
-pattern, the fix is consistently the same shape — replace the fixed list
-with a live query, or add an explicit test that asserts the two stay in
-sync (`test_constants_match_data.py` exists specifically for this).
+The write path for supply-chain relationships carries an additional data
+quality gate: `verify_source_text_consistency()` requires that an
+extracted percentage or threshold phrase actually be findable in that
+edge's own `source_text` before the row is allowed into the database.
 
-## Known, unfixed, currently
+Together, these mechanisms answer one question fairly strongly:
 
-> **This section is, itself, a live example of the drift problem above** —
-> the product repo's own README "Known Limitations" section, checked while
-> writing this handbook, is *already* out of date relative to the project's
-> own engineering log: it still attributes a routing-cost figure to a router
-> implementation that has since been rebuilt on top of `slots.py` (ch.04
-> §4.3), and doesn't yet mention two items the engineering log documents as
-> found and still open.
+> **"Does this number or relationship have a traceable source?"**
 
-For the current state, don't read this section alone:
-inside the teaching repo, the freshest ground truth is the latest regression
-result files (`data/results/*_clarify_regression.json`) and the dated
-postscripts in `docs/simplification-audit.md`. As of the last check, the
-open items included two that share a pattern worth naming — **individually
-grounded, collectively wrong**: every number involved traces to a real tool
-call, so §4.5's grounding check passes cleanly, and the answer is still
-wrong because the failure lives one level up, in *how* those grounded
-numbers get applied or combined, not in whether they're grounded (the two
-items below are different specific mechanisms within that same blind spot —
-one a wrong entity/year binding, the other a wrong formula — not
-duplicates of each other) — plus one that is a genuinely separate
-methodological gap, not another instance of this one:
+They do not fully answer a harder one:
 
-- **Relationship-direction inversion in supply-chain answers.** A supplier's
-  own dependency percentage can, in a documented failure case, be applied to
-  the *wrong* company's revenue figure — a ~94× magnitude error in the one
-  traced instance, and every input involved was individually grounded
-  (§04 §4.5's boundary: correct-looking arithmetic over the wrong binding).
-  `grounding.py`'s `misbound_inputs` check now catches the specific
-  sub-class where a supply-edge percentage is applied to the wrong company
-  or year; it does not catch the general case of an intentionally-correct
-  metric substituted for the wrong one. Residual rate on the one case this
-  was tested against: roughly 10%, with a detector but not yet a structural
-  fix.
-- **Formula invention on derived metrics with missing inputs.** When asked
-  for a metric this system has no stored definition for (e.g. book value
-  per share), the model has been observed to construct a plausible-looking
-  formula from available inputs rather than refusing. This is recorded and
-  shown to the user (`authority.py`'s `none` bucket, §04 §4.5) rather than
-  blocked — a deliberate design choice (a machine-checkable "we don't have a
-  registered formula for this" label is judged more honest and useful than
-  either silently trusting an unverified formula or refusing every question
-  outside a fixed metric list), but it means an unsourced-and-wrong formula
-  is a real, currently-possible answer shape, not a hypothetical.
-- **LLM-judge same-model self-evaluation bias**, unresolved — the retrieval
-  and comparison-question judge shares a model with the agent's own default.
-  Not yet cross-validated against a heterogeneous judge.
+> **"Did the model combine these real pieces of evidence with the correct
+> semantic relationship between them?"**
+
+That gap is this system's most important current reliability boundary,
+stated once here as a summary before the sections below unpack it:
+
+```text
+It guarantees:
+  - numbers trace to tools
+  - relationship edges trace to filings
+  - certain known binding errors are detected
+
+It does NOT guarantee:
+  - every grounded number is semantically correct
+  - every valid computation uses the right formula
+  - retrieval always surfaces the best evidence
+```
+
+## 7.2 Grounded ≠ Correct
+
+The most important remaining risk class can be named precisely:
+
+> **Individually grounded, collectively wrong** — every fact involved is
+> real, and the combination can still be wrong.
+
+A documented, traced example: a supplier's dependency percentage on Apple
+was real. A company's revenue figure was real. The multiplication
+`compute()` performed was arithmetically correct. But the model bound the
+*supplier's own* dependency percentage to a *different company's* revenue
+figure — a roughly 94× magnitude error in the resulting number.
+
+Every individual number in that trace came from a real tool call, so a
+conventional "is this number grounded" check still passes cleanly.
+
+`grounding.py` now has a targeted detector for this specific failure —
+`misbound_inputs` — which checks whether a supply-edge percentage has been
+applied to the wrong company or the wrong fiscal year. This closes the one
+sub-case that was actually traced and measured.
+
+But this remains, honestly:
+
+**Detected, not yet fully, structurally blocked.**
+
+`misbound_inputs` covers the known company/year-binding sub-case; it does
+not prove every possible semantic-binding error is caught. If the model
+retrieves a real but conceptually wrong financial metric, a general
+grounding check may still consider it "sourced."
+
+So the boundary, stated as plainly as it can be:
+
+> **Evidence grounding is necessary for correctness. It is not sufficient
+> for it.**
+
+## 7.3 Formula invention on derived metrics
+
+A related but mechanically different problem shows up in derived metrics.
+
+When a user asks for a metric this system has no registered definition
+for — book value per share, for example — the model does not always
+refuse. It sometimes constructs a plausible-looking formula from whatever
+legitimate financial data is available.
+
+This is not arithmetic hallucination. The expression `compute()` evaluates
+can be entirely correct, and every input number can genuinely come from
+the database. The real question is different:
+
+> **Is the formula itself sourced?**
+
+So `authority.py` does not attempt to enumerate and validate every possible
+financial formula — an unbounded set. It answers a narrower, machine-
+checkable question instead: **where did this formula come from?**
+Three buckets:
+
+- `question` — the question itself specified the arithmetic
+- `registry` — the formula matches one this project's own trace history
+  has repeatedly confirmed correct
+- `none` — the system cannot confirm where the formula came from
+
+A `none` classification is not automatically treated as an error and does
+not block the answer. It is surfaced to the reader as an **unsourced
+derivation** instead. This is a deliberate design choice: the system opts
+to detect and plainly disclose "this formula has no registered basis"
+rather than pretend it can verify the semantic correctness of arbitrary
+financial formulas.
+
+So this item belongs to a distinct category:
+
+**Detected, and the residual risk is deliberately accepted.**
+
+An unverified, and possibly actually wrong, formula can still reach the
+final answer — the system just no longer presents it as something that
+has been checked.
+
+## 7.4 Multi-turn context carrying is not yet a hard constraint
+
+Multi-turn context inheritance does not rely entirely on the prompt.
+`conversation.py` extracts slots (company, fiscal year, etc.) from prior
+turns and injects them into the current turn as a structured context
+block; when a pronoun is involved, it substitutes the carried company in
+and re-parses the sentence from scratch. **Carrying context is
+structural**, not a hope expressed in prose.
+
+The weak point is downstream of that:
+
+> Whether the model actually *honors* the fiscal year it was handed is
+> still not enforced at the tool-call layer.
+
+In this project's own multi-turn evaluation, the model has explicitly
+overridden the carried fiscal year and re-selected the most recent year in
+the database instead — observed on the order of once every five runs.
+
+So the current state is:
+
+**Context carrying is structured. Context compliance still partly depends
+on the model following a prompt instruction.**
+
+A stronger future fix would bind the inherited fiscal year directly into
+the tool call's parameters, rather than continuing to leave the model free
+to override it.
+
+## 7.5 Retrieval's evaluation signal is still weak
+
+The retrieval passage-hit metric has ranged **25%–62.5%** across otherwise-
+identical historical runs — a band wider than most of the real engineering
+improvements this project has ever measured. So:
+
+> A single run's retrieval score moving up or down cannot, by itself, be
+> read as the system having genuinely improved or regressed.
+
+The project isolates specific mechanisms deterministically instead, via
+`probe_retrieval.py`, `probe_truncation.py`, and `probe_year_scope.py` —
+checking, for example, whether the right chunk still reaches the top-k
+window, whether a chunk gets silently truncated by the embedding model's
+token limit, and whether the fiscal-year filter actually narrows results
+to the correct filing.
+
+These probes are strongly deterministic about the specific mechanism each
+one names. But it has to be said plainly:
+
+> They prove the mechanism each probe covers is working. They do not prove
+> the overall quality of retrieval as a whole.
+
+Retrieval therefore remains the comparatively weakest-measured part of the
+current evaluation suite.
+
+## 7.6 Same-model LLM-judge bias is still unresolved
+
+Some qualitative retrieval and comparison-question scoring still uses an
+LLM judge, and that judge shares a model family with the agent's own
+default. This carries an unquantified risk:
+
+> The judge may systematically favor answers that resemble its own
+> generation style.
+
+No heterogeneous-judge cross-validation has been run yet, so the actual
+size of this bias is unknown. This remains an **open evaluation-
+methodology limitation**. Until it is resolved, LLM-judged metrics should
+be treated as supporting evidence — not given the same weight as
+deterministic numeric or probe results.
+
+## 7.7 Data-coverage boundary: absent from the database ≠ undisclosed by the SEC
+
+`financial_facts` is not a full mirror of a company's SEC XBRL data. The
+ingestion pipeline only maps a chosen set of `us-gaap` tags to this
+system's current canonical metric labels — a choice that keeps downstream
+querying and entity normalization simple, at the necessary cost of
+coverage. So:
+
+> `query_financials()` returning "not found" only means "this metric isn't
+> in the current structured schema." It does not mean "the company never
+> disclosed this."
+
+The agent's refusal wording is written to keep these two claims separate,
+but the underlying boundary remains real and worth restating explicitly.
+
+The same logic applies to the supply-chain relationship data, which is
+built almost entirely from supplier-side customer-concentration
+disclosures. A question like:
+
+> "What percentage of Apple's procurement comes from Qorvo?"
+
+is unanswerable from current data, even though the system knows what
+percentage of *Qorvo's* revenue comes from Apple. This is not a retrieval
+failure. It is that **the evidence, by construction, only faces one
+direction.**
+
+## 7.8 A reproducible snapshot is not the same as a re-runnable extraction pipeline
+
+This is one of the most important reproducibility boundaries in the
+current data pipeline.
+
+The teaching repo ships `data/seed/` — a fixed database snapshot tied to
+every published result via a `db_fingerprint`. So:
+
+> **The current project is reproducible.** A reader can load the same
+> snapshot and confirm they're working from the same data state every
+> published result was measured against.
+
+The extraction pipeline, however, is **not**, in the strict sense,
+**re-runnable from scratch**. `supply_edges` carries corrections applied
+by hand after manual review; the `ix:nonfraction` extraction fix landed
+*after* the last full edge-extraction run and changed the candidate text
+blocks for 32 of the 54 filings behind those edges; the newly visible
+candidate text has not itself been re-extracted and re-audited.
+
+So running `extract_edges.py` again today is **not guaranteed to
+reproduce the shipped `supply_edges` table.**
+
+This is exactly why this handbook draws the distinction plainly rather
+than letting a reader assume the stronger claim:
+
+**Reproducible** — a fixed artifact plus a fingerprint that lets you
+confirm you're looking at the same data state a result was measured
+against.
+
+**Re-runnable** — running the pipeline again from raw source data
+produces, deterministically, the same final artifact.
+
+The current system satisfies the first. It does not yet satisfy the
+second.
+
+## 7.9 A recurring engineering failure pattern: hardcoded inventory drift
+
+Beyond specific feature limitations, this project's development history
+has repeatedly hit one more general engineering problem:
+
+> **A hardcoded list is correct when it's written. When the underlying
+> real data changes, nothing forces the list to keep up.**
+
+This pattern has shown up in more than one, seemingly unrelated module.
+
+**The customer-alias dictionary.** Huawei was initially missing from
+`CUSTOMER_ALIASES`. Different extraction runs consequently wrote the same
+real-world entity to the database under three different literal strings:
+`Huawei`, `Huawei Technology Co., Ltd.`, and `002502.SZ` — the last one an
+LLM-invented ticker that doesn't actually belong to Huawei. Fixed by
+adding the alias mapping and merging the fragmented historical rows.
+
+**The model-router tiering table.** An earlier version of `model_router.py`
+maintained a table assigning different question categories to different
+model tiers. Checked against which categories actually existed, every
+single one fell through to the same tier — the table existed, but was
+never actually making a decision. It was deleted rather than kept for the
+sake of looking architecturally complete.
+
+Both examples share the same shape:
+
+```text
+Hardcoded snapshot
+        |
+        v
+Underlying state changes
+        |
+        v
+No consistency mechanism
+        |
+        v
+Silent drift
+```
+
+The project has settled on two general responses to this pattern:
+
+1. Where an inventory can be derived from live data, derive it from live
+   data directly, rather than snapshotting it.
+2. Where a hardcoded copy has to exist, add a test that asserts it still
+   matches the live state.
+
+`test_constants_match_data.py` is the concrete implementation of the
+second strategy — and the closest thing this chapter has to a checkpoint
+you can run.
+
+## 7.10 Current risk status
+
+| Issue | Type | Current status | Existing mitigation | Residual boundary |
+|---|---|---|---|---|
+| Company/year binding errors | Agent correctness | **Detected, not fully blocked** | `misbound_inputs` | Other semantic-binding errors can still slip through |
+| Model invents an unregistered formula | Agent correctness | **Detected, residual risk accepted** | `authority:none` warning | A wrong formula can still reach the user |
+| Multi-turn fiscal year gets overridden | Context | **Open problem** | Structured context carry | Not yet enforced at the tool-parameter layer |
+| High retrieval-metric variance | Evaluation | **Mitigated, not resolved** | Deterministic probes | Overall retrieval quality still carries noise |
+| Same-model LLM judge | Evaluation | **Open problem** | None yet | Heterogeneous-judge cross-validation not done |
+| Limited XBRL canonical-schema coverage | Data coverage | **Design boundary** | Refusal wording distinguishes unavailable vs. undisclosed | Some real disclosures never reach SQL |
+| Supplier-side evidence can't answer customer-side procurement questions | Evidence scope | **Design boundary** | Router refuses directly | Current data cannot fill this gap |
+| Edge extraction can't strictly re-derive the shipped table from scratch | Reproducibility | **Open problem** | Pinned seed + fingerprint | Pipeline is not yet fully re-runnable |
+
+## Conclusion
+
+"Verifiable," in this project, does not mean:
+
+> **The system never gets an answer wrong.**
+
+It means something more precise:
+
+> **The system breaks an answer down into checkable facts, computations,
+> relationships, and citations wherever it can, and states plainly how
+> far machine verification currently reaches — and where it stops.**
+
+The strongest guarantees today sit at the evidence-sourcing and citation-
+tracing layer: financial numbers come from SQL/XBRL; relationships come
+from structured edges carrying their own `source_text`; a number that
+never appeared in the tool-call trace can be caught; a known class of
+semantic-binding error already has a detector; and specific mechanisms can
+each be independently verified by a deterministic probe.
+
+The most visible remaining problem has shifted, gradually, from:
+
+> **"Is this number made up?"**
+
+toward:
+
+> **"Are these real numbers being combined with the correct semantic
+> relationship between them?"**
+
+That shift is the next real frontier of reliability engineering for this
+system.

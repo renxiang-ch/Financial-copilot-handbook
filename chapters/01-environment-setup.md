@@ -122,9 +122,14 @@ this step and assume everything works because nothing crashed.
 No Mac-equivalent launch script ships in this repo as of this writing —
 on Mac, start the two processes directly: `uv run --active uvicorn
 copilot.api:app --port 8000` and, in a second terminal, `uv run --active
-streamlit run frontend.py`. See ch.07 for the specific Windows pitfall
-`start.ps1`'s port-killing step exists to prevent (a stale Streamlit
-process surviving a restart and corrupting its own internal page table).
+streamlit run frontend.py`.
+
+> **Why `start.ps1` kills ports 8000/8501 before starting anything**: a
+> stale Streamlit process left running from a previous session can survive
+> a restart and end up with a corrupted internal page table — the symptom
+> is a frontend that starts without error but serves a blank or broken
+> page. Killing both ports first, every time, is cheaper than diagnosing
+> that failure mode after the fact.
 
 ## Checkpoint
 

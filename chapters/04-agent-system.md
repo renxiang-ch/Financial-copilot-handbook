@@ -71,8 +71,13 @@ All three ticker-taking tools (`query_financials`, `list_metrics`,
 (`_resolve_ticker`) that distinguishes "this ticker doesn't exist" from
 "this ticker exists but has no row for this query" and offers a
 `difflib`-based correction (`SKWS` → `SWKS`) rather than reporting a
-misspelling as a fact about the world — see ch.07 for the specific failure
-this closed.
+misspelling as a fact about the world.
+
+> **The failure this closed**: before `_resolve_ticker` existed, a typo'd
+> ticker (`SKWS` instead of `SWKS`) simply returned "no data found" —
+> indistinguishable from "this company genuinely has no data for this
+> query." The agent (and a reader trusting its refusal) had no way to tell
+> a spelling mistake from a real coverage gap.
 
 ## 4.2 Slots — one parser, several consumers
 

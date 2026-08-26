@@ -1,4 +1,4 @@
-# Supply-Chain Copilot — Handbook
+# Financial-Copilot — Handbook
 
 **What this teaches**: how to build a tool-calling LLM agent that answers
 financial-analyst questions over SEC 10-K filings with every number and
@@ -42,7 +42,7 @@ git checkout v1.0-teaching
 | | [04 Agent System](chapters/04-agent-system.md) | The tool loop, routing, slots, verification, clarification |
 | III. Proof | [05 Evaluation](chapters/05-evaluation.md) | Eval sets, harness scoring, deterministic probes, ablations |
 | IV. Optional | [06 Product Track](chapters/06-product-track.md) | The dashboard views |
-| | [07 Limitations & Pitfalls](chapters/07-limitations-and-pitfalls.md) | What is known-broken, and the failure classes that recur |
+| | [07 Reliability Boundaries & Failure Modes](chapters/07-limitations-and-pitfalls.md) | Where "verifiable" stops meaning "always correct," precisely |
 
 Appendix: [DB Schema](appendix/a-db-schema.md) · [Expected Checkpoints](appendix/b-expected-checkpoints.md) · [Cost & Time Budget](appendix/c-cost-and-time-budget.md)
 

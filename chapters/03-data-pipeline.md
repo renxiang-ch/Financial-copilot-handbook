@@ -105,9 +105,11 @@ text blocks were captured as extraction candidates downstream. The fix
 changed the candidate text blocks for **32 of the 54 filings** behind the
 supply-chain graph's named edges — a large blast radius that was measured,
 not assumed, by re-running candidate extraction against all 54 filings both
-before and after the fix and diffing the results. This is exactly the kind
-of defect ch.07 discusses as a class: a narrow-looking parsing assumption
-that turns out to have wide, silent reach once actually measured.
+before and after the fix and diffing the results: a narrow-looking parsing
+assumption with wide, silent reach once actually measured. This same fact
+is why §3.5 below draws a hard line between "reproducible" and
+"re-runnable" for this pipeline, and it's the concrete case ch.07 §7.8
+uses to make that distinction land.
 
 ## 3.3 Embeddings + retrieval
 
@@ -132,8 +134,8 @@ that get silently truncated by the embedding model's 512-token window) and
 `fiscal_year` (scopes retrieval to a specific filing year when the question
 names one, falling back to unscoped search for trend-style questions that
 need to see every year). Both are documented, deliberate narrowings of what
-`retrieve_text` searches — see ch.07 for the measured tradeoffs each one
-costs.
+`retrieve_text` searches, each with its own measured cost stated above
+rather than deferred elsewhere.
 
 ## 3.4 Supply-chain edge extraction
 
