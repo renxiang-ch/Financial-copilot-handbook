@@ -4,39 +4,136 @@ Covers: `pipeline/ingest_xbrl.py`, `pipeline/ingest_text.py`,
 `pipeline/ingest_item8.py`, `pipeline/embed_chunks.py`,
 `pipeline/extract_edges.py`, `retrieval/{bm25,dense,hybrid}.py`.
 
-## 3.1 XBRL ingestion → financial_facts
+## 3.1 XBRL ingestion → `financial_facts`
 
-<!-- TODO: ingest_xbrl.py. The 24 metric labels currently served — pull with
-     `SELECT DISTINCT label FROM financial_facts WHERE form='10-K'`, do not
-     hardcode a list here, it will drift (this is the exact defect class
-     documented in ch.07) -->
+`ingest_xbrl.py` pulls each company's `companyfacts` payload from EDGAR and
+filters it before anything reaches the database — the project's
+"numbers never come from LLM arithmetic" rule starts here, one layer before
+the agent even exists. A fixed whitelist (`us-gaap` namespace only,
+`10-K`/`10-Q` form only) narrows hundreds of raw tags down to the current 24
+canonical labels served (`SELECT DISTINCT label FROM financial_facts WHERE
+form='10-K'` — check this directly rather than trusting a hardcoded list
+anywhere, including this sentence, past the date it was written).
 
-## 3.2 10-K text ingestion → filings + text_chunks
+This whitelist is also the mechanism behind a real, measured coverage gap: a
+number can be fully XBRL-tagged in the source filing and still never reach
+`financial_facts`, simply because its specific tag isn't in the dict. This
+is not a bug — it's the tradeoff of a curated schema over an open-ended one
+— but it means "not in the database" and "not disclosed" are different
+claims, and the agent's refusal language is written to not conflate them.
 
-<!-- TODO: ingest_text.py, chunking strategy, the ix:nonfraction fix and why
-     it mattered (see CLAUDE.md 2026-08-21 entry) -->
+A separate, real defect fixed in this layer: `financial_facts` originally
+had no tie-breaker for duplicate `(ticker, label, fiscal_year, period_end)`
+keys, and could silently return a wrong value when a filing restated a prior
+period. `pipeline/fix_financial_facts.py` added explicit tag-priority
+resolution and a duration check (catching quarterly figures that had been
+leaking into annual-looking rows) — see that module for the fix, kept
+deliberately separate from this project's own ingestion path so it can be
+re-run independently.
+
+## 3.2 10-K text ingestion → `filings` + `text_chunks`
+
+`ingest_text.py` downloads each filing's HTML, sections it (Business / Risk
+Factors / MD&A / Item 8 financial statements), and chunks it for retrieval.
+
+**A real, fixed extraction defect worth understanding, not just noting**:
+EDGAR's HTML filings mark inline numeric values with `<ix:nonfraction>` tags
+for XBRL tagging purposes; an earlier version of this pipeline's text
+extraction did not account for this markup, which silently affected which
+text blocks were captured as extraction candidates downstream. The fix
+changed the candidate text blocks for **32 of the 54 filings** behind the
+supply-chain graph's named edges — a large blast radius that was measured,
+not assumed, by re-running candidate extraction against all 54 filings both
+before and after the fix and diffing the results. This is exactly the kind
+of defect ch.07 discusses as a class: a narrow-looking parsing assumption
+that turns out to have wide, silent reach once actually measured.
 
 ## 3.3 Embeddings + retrieval
 
-<!-- TODO: embed_chunks.py (bge-small-en-v1.5, local, 384-dim), then
-     retrieval/bm25.py + dense.py + hybrid.py (RRF fusion, k=60). Table
-     filtering (chunk_type) and year-scoping (R2) both belong here — they are
-     retrieval-time WHERE clauses, not separate systems. -->
+`pipeline/embed_chunks.py` generates local embeddings
+(`BAAI/bge-small-en-v1.5`, 384 dimensions, no API key) for every chunk. Three
+retrieval modules compose on top:
+
+- `retrieval/bm25.py::retrieve_text()` — lexical (term/number overlap).
+- `retrieval/dense.py::retrieve_dense()` — semantic (embedding cosine
+  similarity), catching paraphrases BM25 misses.
+- `retrieval/hybrid.py::retrieve_hybrid()` — merges the two rankings via
+  **Reciprocal Rank Fusion** (`k=60`, the standard smoothing constant from
+  Cormack, Clarke & Buettcher, SIGIR 2009), combining by rank position
+  rather than raw score so the two very differently-scaled rankings don't
+  need score normalization.
+
+Two retrieval-time filters are `WHERE` clauses on this same pipeline, not
+separate systems: `include_tables` (excludes `chunk_type='table'` rows by
+default — measured to carry almost none of the golden citations the eval
+set checks for, while contributing disproportionately to over-length chunks
+that get silently truncated by the embedding model's 512-token window) and
+`fiscal_year` (scopes retrieval to a specific filing year when the question
+names one, falling back to unscoped search for trend-style questions that
+need to see every year). Both are documented, deliberate narrowings of what
+`retrieve_text` searches — see ch.07 for the measured tradeoffs each one
+costs.
 
 ## 3.4 Supply-chain edge extraction
 
-<!-- TODO: extract_edges.py -- this is the pipeline's methodological center.
-     Regex pre-filter -> schema-guided LLM extraction -> Pydantic validation ->
-     the quality gate (verify_source_text_consistency, --audit mode). Walk
-     through at least one real bug as a worked example (JBL citation bug,
-     QRVO fabricated percentage, or the Huawei entity-fragmentation case --
-     all documented in CLAUDE.md with full root-cause writeups, don't
-     reconstruct from memory, copy the verified numbers). -->
+`extract_edges.py` is the pipeline's methodological center. Pipeline:
+**regex pre-filter** (`_extract_item8_candidates()` narrows a filing's Item 8
+financial-notes section to text blocks containing "%" + "revenue" + a
+company name) → **schema-guided LLM extraction** (`_extract_from_chunk()`,
+constrained by a Pydantic schema, `EdgeCandidate`) → **validation** →
+**a quality gate that can reject a write**, not just log a warning:
+`verify_source_text_consistency()` checks that the extracted `revenue_pct`
+(or, for a threshold-only disclosure, the threshold wording itself) actually
+appears in the quoted `source_text` before the row is allowed into
+`supply_edges`. A candidate that fails this check does not get silently
+dropped either — `audit_existing_edges(conn, include_unnamed=False)` (the
+`--audit` CLI mode) can be run at any time to scan the whole table and
+report which rows are clean versus suspicious, independent of whether the
+gate was in place when a given row was written.
+
+**A worked example, because the mechanism is easier to understand from a
+real failure than from the code alone.** An audit of the existing
+`supply_edges` table (2026-07-15/16, documented in full in `CLAUDE.md`)
+found three distinct, real defect classes in already-written rows, none of
+them hypothetical:
+
+1. **Citation pointed at the wrong sentence, number was actually correct**
+   (JBL→AAPL, several fiscal years). The extraction had quoted an aggregate
+   "our five largest customers" sentence instead of the row of a nearby
+   table that actually stated Apple's specific percentage — the number in
+   the database was right, but the `source_text` couldn't prove it.
+2. **The number itself was wrong, not just the citation** (QRVO→AAPL FY2018/
+   FY2019: stored as 12%/11%, actual disclosed values were 36%/32%). Found
+   by noticing the full multi-year trend line was smooth except for a two-
+   year dip, then checking the original filing directly — this is the class
+   `verify_source_text_consistency()` exists specifically to catch, since a
+   number that isn't grounded in its own cited sentence at write time now
+   fails the gate rather than requiring an analyst to notice a suspicious
+   trend line after the fact.
+3. **Entity fragmentation**: the same real-world customer (Huawei — not
+   itself a public-company ticker) got written to `supply_edges` under three
+   different literal strings across different extraction runs
+   (`"Huawei"`, `"Huawei Technology Co., Ltd."`, `"002502.SZ"` — the last one
+   an LLM-invented ticker, since Huawei has none), because the customer-alias
+   dictionary had no entry for it. Fixed by adding the alias mapping and
+   manually merging the fragmented rows — the general lesson (a hardcoded
+   alias/lookup table drifts from what the data actually contains) recurs
+   across this project and is the subject of ch.07's dedicated section.
 
 ## 3.5 Why the shipped data is a snapshot, not a re-run target
 
-<!-- TODO: supply_edges carries hand-applied corrections; the ix:nonfraction
-     fix changed candidate blocks for 32 of 54 filings after the last
-     extraction run. Re-running extraction will NOT reproduce the shipped
-     table. Say this plainly -- it is a real teaching point about the gap
-     between "reproducible" and "re-runnable" in data pipelines. -->
+`supply_edges` carries the hand-applied corrections from the worked example
+above; the `ix:nonfraction` fix (§3.2) changed the extraction candidate set
+for 32 of 54 filings *after* the last full extraction run. Re-running
+`extract_edges.py` today would **not** reproduce the shipped table — it
+would produce a different one, of unknown-but-probably-mixed quality,
+since the newly-visible text from the `ix:nonfraction` fix hasn't itself
+been re-extracted and re-audited yet. This is a real, deliberate distinction
+this project draws between two words that sound like synonyms:
+**reproducible** (a fixed artifact plus a fingerprint that lets you confirm
+you're looking at the same one — this the shipped `data/seed/` snapshot is)
+and **re-runnable** (running the pipeline again from scratch produces the
+same result — this the pipeline currently is not, for the reasons above).
+Conflating the two is a common failure mode in data-engineering
+reproducibility claims generally, and this project says plainly which one it
+is rather than letting a reader assume the stronger claim.

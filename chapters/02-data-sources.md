@@ -1,17 +1,71 @@
 # 02 · Data Sources
 
 No code file owns this chapter — it is the knowledge background the pipeline
-chapter assumes.
+chapter (ch.03) assumes.
 
-<!-- TODO:
-- EDGAR REST API + XBRL companyfacts/frames API — what they are, what they return
-- What a 10-K "customer concentration" disclosure is (ASC 280) and why it is
-  extractable/verifiable (>~10% of revenue rule)
-- The company cluster: which companies, why this cluster, US-listed-only
-  constraint (10-K filers, not 20-F foreign filers)
-- Current scale, checked against the DB, not against old notes:
-  15 companies, 148 filings, 38,966 XBRL facts, 16,342 text chunks, 128 edges
-  (103 named) -- these numbers WILL have moved again by the time this is
-  written; re-check with copilot.eval.harness's db_fingerprint output before
-  publishing them
--->
+## SEC EDGAR: two different APIs for two different kinds of fact
+
+- **XBRL `companyfacts` / `frames` API** — every US public company tags its
+  financial statement line items (revenue, net income, R&D, etc.) in a
+  standardized taxonomy (`us-gaap:...`) as part of every 10-K/10-Q filing.
+  `companyfacts` returns, per company, every tagged fact across every filing
+  it has ever made — hundreds of raw tags, most irrelevant to this project.
+  This is the source for `financial_facts`: structured, machine-readable,
+  no PDF/table parsing required, at the cost of a filtering problem (see
+  ch.03 §3.1's whitelist).
+- **Full-text HTML filings** — the 10-K document itself, for anything with
+  no XBRL equivalent: Risk Factors, MD&A prose, and — critically for this
+  project — customer-concentration disclosures. This is the source for
+  `text_chunks` and, downstream, `supply_edges`.
+
+## What a customer-concentration disclosure is, and why it's extractable
+
+**ASC 280-10-50-42** (the FASB's segment-reporting standard) requires a
+company to disclose any single customer that accounts for ≥10% of its
+revenue. This is why supply-chain relationships are extractable at all: it
+is not sentiment analysis or inference over vague language, it is a company
+being legally required to name a concentration and (usually) state a
+percentage. The disclosure comes in one of three forms, all present in this
+project's corpus:
+
+- **Named, exact** — "Apple Inc. accounted for 87% of total revenue" (Cirrus
+  Logic's typical form).
+- **Named, threshold-only** — "one customer accounted for more than ten
+  percent" with no exact figure (Skyworks' typical form for Apple in some
+  years) — extracted with `threshold_only = true`, a real floor rather than
+  a fabricated point estimate.
+- **Unnamed** — "our largest customer accounted for X%" with no name given.
+  Present in the corpus but filtered out of every product-facing query
+  (`disclosure_status = 'named'` is a hard `WHERE` clause everywhere the
+  product reads `supply_edges`).
+
+## The company cluster
+
+15 companies, defined in `pipeline/companies.py`, tiered by ASC 280 status:
+
+| Tier | Companies | Why |
+|---|---|---|
+| Hub | AAPL | The customer every other tier's disclosures are about |
+| Positive (named ≥10% Apple concentration) | CRUS, QRVO, SWKS, AVGO, QCOM | The core supply-chain-graph evidence — these are the companies whose 10-Ks name Apple explicitly |
+| Negative (diversified, no single named customer ≥10%) | GLW, ADI, TXN, MCHP, ON, LRCX | Deliberately included as a contrast set — proves the pipeline correctly finds *nothing* rather than always finding a relationship |
+| EMS / connector (structural inference only, no disclosed customer name) | APH, JBL, SANM | Present in filings' customer lists via other structural evidence, without a named-disclosure ground truth to validate against |
+
+**Constraint: US-listed 10-K filers only.** Foreign private issuers (TSMC,
+Foxconn) file Form 20-F, a different disclosure regime this pipeline does
+not parse — excluded by design, not by oversight.
+
+## Current scale (checked against the live database, 2026-08-25 — will have moved; re-check with `copilot.eval.harness`'s `db_fingerprint` output rather than trusting this table)
+
+| | |
+|---|---|
+| Companies | 15 |
+| Filings | 148 |
+| Financial facts | 38,966, across 24 canonical labels (`Revenue`, `COGS`, `GrossProfit`, `OperatingIncome`, `NetIncome`, `EPS_Basic`, `EPS_Diluted`, `R&D`, `TotalAssets`, `LongTermDebt`, `TotalDebt`, `TotalEquity`, `TotalEquityInclNCI`, `CurrentAssets`, `CurrentLiabilities`, `Inventory`, `PP&E`, `CapEx`, `D&A`, `D&A_Component`, `OperatingCashFlow`, `InterestExpense`, `InterestExpenseOnDebt`, `IncomeTaxExpense`) |
+| Text chunks | 16,342 (11,990 prose, 4,352 table), all embedded |
+| Supply-chain edges | 128 total, 103 `disclosure_status = 'named'` |
+
+The 24-label list above was pulled with `SELECT DISTINCT label FROM
+financial_facts WHERE form='10-K'` at the time this chapter was written —
+do not hardcode it into anything downstream that needs to stay current; this
+exact kind of hardcoded-list-vs-live-data drift is the single most recurring
+defect class in this project's history (ch.07).

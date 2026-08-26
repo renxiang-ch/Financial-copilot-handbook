@@ -5,14 +5,23 @@ No code lives here. Everything in this handbook targets one pinned version of
 the code repository:
 
 ```
-git clone https://github.com/renxiang-ch/<repo-A-name>.git
-cd <repo-A-name>
+git clone https://github.com/renxiang-ch/Financial-Report-Research-Copilot.git
+cd Financial-Report-Research-Copilot
 git checkout v1.0-teaching
 ```
 
-Every command, file path, and expected number in this handbook was checked
-against that tag. If something here does not match what you see in the code,
-the code is right and this handbook needs an update — please open an issue.
+**`v1.0-teaching` has not been cut yet as of this writing** — the repository
+currently has `v1.0-prototype` and active work past it. Every command, file
+path, and number in this handbook was checked directly against the running
+repository on 2026-08-25 (`main`, not a tag), not against a pinned
+reference — treat this handbook as accurate to that date rather than to a
+specific commit until `v1.0-teaching` exists. Once it is cut, re-verify this
+handbook against it specifically and update this note; a handbook that
+claims to target a tag it was not actually checked against is exactly the
+kind of silent-drift risk ch.07 documents elsewhere in this project.
+
+If something here does not match what you see in the code, the code is
+right and this handbook needs an update — please open an issue.
 
 ## Reading order
 
