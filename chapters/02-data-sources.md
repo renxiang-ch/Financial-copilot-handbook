@@ -54,18 +54,30 @@ project's corpus:
 Foxconn) file Form 20-F, a different disclosure regime this pipeline does
 not parse — excluded by design, not by oversight.
 
-## Current scale (checked against the live database, 2026-08-25 — will have moved; re-check with `copilot.eval.harness`'s `db_fingerprint` output rather than trusting this table)
+## Current scale
 
 | | |
 |---|---|
 | Companies | 15 |
 | Filings | 148 |
-| Financial facts | 38,966, across 24 canonical labels (`Revenue`, `COGS`, `GrossProfit`, `OperatingIncome`, `NetIncome`, `EPS_Basic`, `EPS_Diluted`, `R&D`, `TotalAssets`, `LongTermDebt`, `TotalDebt`, `TotalEquity`, `TotalEquityInclNCI`, `CurrentAssets`, `CurrentLiabilities`, `Inventory`, `PP&E`, `CapEx`, `D&A`, `D&A_Component`, `OperatingCashFlow`, `InterestExpense`, `InterestExpenseOnDebt`, `IncomeTaxExpense`) |
+| Financial facts | 38,966, across 24 canonical labels (full list below) |
 | Text chunks | 16,342 (11,990 prose, 4,352 table), all embedded |
 | Supply-chain edges | 128 total, 103 `disclosure_status = 'named'` |
 
-The 24-label list above was pulled with `SELECT DISTINCT label FROM
-financial_facts WHERE form='10-K'` at the time this chapter was written —
-do not hardcode it into anything downstream that needs to stay current; this
-exact kind of hardcoded-list-vs-live-data drift is the single most recurring
-defect class in this project's history (ch.07).
+The 24 canonical labels, pulled with `SELECT DISTINCT label FROM
+financial_facts WHERE form='10-K'`:
+
+`Revenue` · `COGS` · `GrossProfit` · `OperatingIncome` · `NetIncome` ·
+`EPS_Basic` · `EPS_Diluted` · `R&D` · `TotalAssets` · `LongTermDebt` ·
+`TotalDebt` · `TotalEquity` · `TotalEquityInclNCI` · `CurrentAssets` ·
+`CurrentLiabilities` · `Inventory` · `PP&E` · `CapEx` · `D&A` ·
+`D&A_Component` · `OperatingCashFlow` · `InterestExpense` ·
+`InterestExpenseOnDebt` · `IncomeTaxExpense`
+
+> **Before trusting any number on this page**: it was checked live against
+> the database on 2026-08-25 and will have moved since. Re-run
+> `copilot.eval.harness` and compare its `db_fingerprint` output rather than
+> trusting this page past that date — and never hardcode the label list
+> above into anything downstream that needs to stay current. A fixed list
+> silently drifting from the live data it was copied from is the single most
+> recurring defect class in this project's history (ch.07).

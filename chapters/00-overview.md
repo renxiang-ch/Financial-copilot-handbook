@@ -53,13 +53,16 @@ than silently trusting the model.
 | XBRL financial facts | 38,966, across 24 canonical metric labels |
 | Text chunks | 16,342 (11,990 prose / 4,352 table), all embedded |
 | Supply-chain edges | 128 total, 103 named |
-| Frozen eval set (`eval_set.json`, v1.3, 33 items) | Tier-1/Tier-2/input-fetch/refusal all 100%; retrieval passage hit 42.9% (noise band, see ch.05); overall 86.7% |
+| Frozen eval set (`eval_set.json`, v1.3, 30 scored + 3 retired) | Tier-1/Tier-2/input-fetch/refusal all 100%; retrieval passage hit 42.9% (noise band, see ch.05); overall 86.7% |
 | Tier-3 graph ablation (`eval_set_tier3.json`, 8 items) | graph-augmented 100% vs. `--no-graph` baseline 12.5% — **+87.5pp**, the graph layer's measured contribution |
-| Unit tests | 128 (was 129; two ingestion-drift guards merged into one when the two ingestion scripts became one, see ch.03) |
+| Unit tests | 128 |
 
-These will have moved by the time you read this — re-check with
-`copilot.eval.harness --out <path>` and this repo's live database rather
-than trusting the table above past the date it was checked.
+(Was 129 before `v1.0-teaching`: two ingestion-drift guard tests merged into
+one when the two ingestion scripts they each pinned became one script, ch.03.)
+
+> **These numbers will have moved by the time you read this.** Re-check with
+> `copilot.eval.harness --out <path>` against this repo's live database
+> rather than trusting the table above past the date it was checked.
 
 ## A note on how this handbook was built
 

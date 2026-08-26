@@ -12,9 +12,9 @@ data asset the pipeline produces has a mechanism in evaluation guarding it."
 reader into over-trusting the weaker guards below. Guard strength varies
 enormously across this project — some checks are deterministic and currently
 airtight, some are LLM-judged and sit inside a noise band wider than most
-real changes, and at least one important behavior (§below) is enforced by
-nothing stronger than a prompt instruction the model has been observed to
-override.
+real changes, and at least one important behavior (multi-turn fiscal-year
+inheritance, last row of the table below) is enforced by nothing stronger
+than a prompt instruction the model has been observed to override.
 
 | Data asset / behavior | What guards it | Guard strength |
 |---|---|---|

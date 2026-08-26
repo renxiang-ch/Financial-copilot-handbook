@@ -21,7 +21,10 @@ All three read the same `threshold_only` flag `dashboard.py` already carries
 on every edge, and all three surface it the same way rather than letting a
 threshold-only figure sit indistinguishable from an exact one.
 
-## The What-if view's floor-estimate separation — the single clearest example in the product of a UI actively preventing a specific, documented misreading
+## The What-if view's floor-estimate separation
+
+The single clearest example in the product of a UI actively preventing a
+specific, documented misreading.
 
 A `threshold_only` edge (§3.4 — a disclosure that says "more than 10%" with
 no exact figure) stores `revenue_pct = 10.0` as a floor, not an estimate of

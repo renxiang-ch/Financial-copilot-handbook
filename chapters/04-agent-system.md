@@ -167,32 +167,36 @@ missed because of which form appeared in the trace.
 ## 4.6 Model routing
 
 `model_router.py` is a five-line file with a long comment above it — the
-comment is the point, and is worth reading in full rather than summarizing,
-so it is reproduced here near-verbatim rather than paraphrased:
+comment is the point, worth reading in full rather than summarized, so it is
+reproduced here near-verbatim rather than paraphrased:
 
-An earlier version routed by question category to a cheap or a strong
-model tier, and escalated to the strong tier when the cheap one showed
-signs of having failed. Both halves were removed, for measured reasons.
-**Tiering** was removed because the frozen 33-question eval set gave
-*identical* scores on every deterministic metric between `gpt-4o` and
-`gpt-4o-mini` — at 16× the cost for `gpt-4o`, with no change in any number.
-The honest reading is narrower than "the models are equivalent": the eval
-set is saturated, so it has no power to resolve a real difference either
-way — and a tiering table where every category falls through to the same
-tier is dead configuration, the same hardcoded-list-drifts-from-data defect
-this project keeps finding elsewhere (ch.07). **Escalation** was removed
-after checking what mainstream agent frameworks actually do at this
-decision point: LangChain's model-fallback middleware, LangGraph's tool
-retry, LiteLLM's fallbacks, and the OpenAI Agents SDK all switch models on
-*exceptions* (429s, timeouts, context overruns) and never on judged answer
-quality. Quality problems get a different response everywhere they're
-handled at all — Pydantic AI feeds a validation failure back to the *same*
-model, and the OpenAI Agents SDK trips a guardrail and halts rather than
-retrying with a bigger model. Nobody in the surveyed frameworks maps "this
-answer looks wrong" to "pay more" — and the reasoning generalizes: a
-stronger model is a fix for a model that could not do the task; it is not a
-fix for a fabricated figure, because a stronger model fabricates more
-fluently, not less. What this system does instead is verify (§4.5) —
-detection is the part worth building; automatic escalation was a guess
-dressed as a policy. What remains is `select_model(requested)`: an explicit
-model choice is always honored; absent one, `DEFAULT_MODEL = "gpt-4o-mini"`.
+> An earlier version routed by question category to a cheap or a strong
+> model tier, and escalated to the strong tier when the cheap one showed
+> signs of having failed. Both halves were removed, for measured reasons.
+>
+> **Tiering** was removed because the frozen 33-question eval set gave
+> *identical* scores on every deterministic metric between `gpt-4o` and
+> `gpt-4o-mini` — at 16× the cost for `gpt-4o`, with no change in any number.
+> The honest reading is narrower than "the models are equivalent": the eval
+> set is saturated, so it has no power to resolve a real difference either
+> way — and a tiering table where every category falls through to the same
+> tier is dead configuration, the same hardcoded-list-drifts-from-data
+> defect this project keeps finding elsewhere (ch.07).
+>
+> **Escalation** was removed after checking what mainstream agent
+> frameworks actually do at this decision point: LangChain's model-fallback
+> middleware, LangGraph's tool retry, LiteLLM's fallbacks, and the OpenAI
+> Agents SDK all switch models on *exceptions* (429s, timeouts, context
+> overruns) and never on judged answer quality. Quality problems get a
+> different response everywhere they're handled at all — Pydantic AI feeds a
+> validation failure back to the *same* model, and the OpenAI Agents SDK
+> trips a guardrail and halts rather than retrying with a bigger model.
+> Nobody in the surveyed frameworks maps "this answer looks wrong" to "pay
+> more" — and the reasoning generalizes: a stronger model is a fix for a
+> model that could not do the task; it is not a fix for a fabricated figure,
+> because a stronger model fabricates more fluently, not less.
+
+What this system does instead is verify (§4.5) — detection is the part
+worth building; automatic escalation was a guess dressed as a policy. What
+remains is `select_model(requested)`: an explicit model choice is always
+honored; absent one, `DEFAULT_MODEL = "gpt-4o-mini"`.

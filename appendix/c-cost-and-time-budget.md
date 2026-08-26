@@ -11,7 +11,7 @@ past the date this appendix was written (2026-08-25).
 | Full `eval_set.json` run (30 scored items) | $0.033 | 106.2s total, 3.54s/item avg |
 | `eval_set_tier3.json` run (8 items, graph-augmented) | $0.010 | 4.31s/item avg |
 | `eval_set_v2.json` run (13 items) | $0.016 | 51.0s total, 3.92s/item avg |
-| `eval_set_multiturn.json`, one full 5-repeat pass (9 scored turns × 5 runs) | $0.056 | — (see appendix B — this is why `--repeat 5` is the checkpoint standard rather than a single run: it costs roughly 5× a single pass, which is itself the reason it is not run casually on every change) |
+| `eval_set_multiturn.json`, full 5-repeat pass (9 scored turns × 5 runs, why below) | $0.056 | — |
 
 **One-line total for "clone to first successful eval run"**: install +
 database setup + seed load + embedding generation is free (local

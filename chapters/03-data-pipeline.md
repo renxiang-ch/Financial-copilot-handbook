@@ -139,10 +139,13 @@ would produce a different one, of unknown-but-probably-mixed quality,
 since the newly-visible text from the `ix:nonfraction` fix hasn't itself
 been re-extracted and re-audited yet. This is a real, deliberate distinction
 this project draws between two words that sound like synonyms:
-**reproducible** (a fixed artifact plus a fingerprint that lets you confirm
-you're looking at the same one — this the shipped `data/seed/` snapshot is)
-and **re-runnable** (running the pipeline again from scratch produces the
-same result — this the pipeline currently is not, for the reasons above).
+
+- **Reproducible** — a fixed artifact plus a fingerprint that lets you
+  confirm you're looking at the same one. The shipped `data/seed/` snapshot
+  is this.
+- **Re-runnable** — running the pipeline again from scratch produces the
+  same result. The pipeline currently is *not* this, for the reasons above.
+
 Conflating the two is a common failure mode in data-engineering
 reproducibility claims generally, and this project says plainly which one it
 is rather than letting a reader assume the stronger claim.

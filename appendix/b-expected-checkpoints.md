@@ -39,8 +39,17 @@ here before that step is expected, not an error.
 | Tier-2 accuracy | 100% |
 | Tier-2 input fetch | 100% |
 | Refusal accuracy | 100% |
-| Retrieval passage hit | **Report as a band, not a point value: historically 25–62.5% run to run.** Last measured: 42.9%. A number inside this band is not evidence of anything having broken — see ch.05 §5.1/§5.3 before investigating a "regression" here. |
-| Overall | 86.7% at last measurement — this figure moves with retrieval's noise, since numeric/refusal are saturated; do not read a change in "overall" as informative without checking which sub-metric actually moved. |
+| Retrieval passage hit | 25–62.5% (band, not a point — last measured 42.9%) |
+| Overall | 86.7% at last measurement |
+
+> **Retrieval passage hit is a band, not a point value** — it has run
+> 25–62.5% across otherwise-identical runs historically. A number inside
+> that band is not evidence of anything having broken; see ch.05 §5.1/§5.3
+> before investigating a "regression" here.
+>
+> **"Overall" moves with retrieval's noise**, since the numeric and refusal
+> metrics above it are saturated at 100%. Don't read a change in "Overall"
+> as informative on its own — check which sub-metric actually moved first.
 
 ## Tier-3 (`eval_set_tier3.json`, 8 items)
 

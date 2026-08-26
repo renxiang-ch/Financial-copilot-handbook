@@ -63,12 +63,16 @@ Table "public.text_chunks"
  token_count  | integer     |          |
  embedding    | vector(384) |          |
  chunk_type   | text        |          | 'text'   -- 'text' | 'table', added by migration (ch.03 §3.3)
- embedding_v1 | vector(384) |          |   -- backup column from a later re-embedding fix, NOT in the base
-                                              schema.py -- present live but not part of the original design;
-                                              check schema.py's migrate_* functions for its provenance
-                                              before assuming it's load-bearing for anything.
+ embedding_v1 | vector(384) |          |   -- backup column, see note below
 UNIQUE (accn, chunk_index); HNSW index on embedding (cosine); indexed on accn, ticker
+```
 
+`embedding_v1` was added live by a later re-embedding fix and is **not** in
+`schema.py`'s base `CREATE_TABLES_SQL` — check `schema.py`'s `migrate_*`
+functions for its actual provenance before assuming it is load-bearing for
+anything downstream.
+
+```
 Table "public.supply_edges"
       Column       |           Type           | Nullable | Default
 -------------------+--------------------------+----------+------------

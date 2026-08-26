@@ -127,7 +127,16 @@ process surviving a restart and corrupting its own internal page table).
 PYTHONUTF8=1 uv run --active python -m copilot.eval.harness --out /tmp/check.json
 ```
 
-(On Windows PowerShell: `$env:PYTHONUTF8="1"; uv run --active python -m copilot.eval.harness --out /tmp/check.json` — the `PYTHONUTF8` flag is required to avoid `cp1252` encoding errors on a Windows terminal; the harness prints non-ASCII characters in some trace output.)
+On Windows PowerShell, the invocation is:
+
+```powershell
+$env:PYTHONUTF8="1"; uv run --active python -m copilot.eval.harness --out /tmp/check.json
+```
+
+> **Why `PYTHONUTF8` is required on Windows**: the harness prints non-ASCII
+> characters in some trace output, and a Windows terminal defaults to the
+> `cp1252` codec, which raises an encoding error on those characters without
+> this flag.
 
 Expect Tier-1/Tier-2/input-fetch/refusal accuracy at 100% and overall
 accuracy in the high 80s — see Appendix B for the exact current numbers and,
