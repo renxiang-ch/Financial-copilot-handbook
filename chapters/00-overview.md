@@ -5,7 +5,7 @@ a command. By the end you'll know why the system is shaped the way it is
 and what happens, step by step, when a user asks it a question. Chapters
 01–05 then build and verify each piece.
 
-**Verifiable Supply-Chain Risk Copilot** — an analyst-facing agent that answers
+**Financial-Report Research Copilot** — an analyst-facing agent that answers
 questions over SEC 10-K filings with numbers that trace back to SQL/XBRL and
 relationships that trace back to a specific disclosure sentence, for the
 Apple supply-chain cluster (AAPL plus 14 suppliers/peers spanning both named
