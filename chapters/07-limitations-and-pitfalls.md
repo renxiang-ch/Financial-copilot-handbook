@@ -20,7 +20,7 @@ correct." This chapter does not lump every gap into one bucket labeled
 - **open problems** in evaluation or data coverage, not yet resolved
 
 The closest thing to a runnable checkpoint for this chapter is
-`test_constants_match_data.py` (§7.9), already part of ch.01's test suite —
+`test_constants_match_data.py` (§7.8), already part of ch.01's test suite —
 no new command here.
 
 ## 7.1 What the system actually guarantees
@@ -167,32 +167,7 @@ A stronger future fix would bind the inherited fiscal year directly into
 the tool call's parameters, rather than continuing to leave the model free
 to override it.
 
-## 7.5 Retrieval's evaluation signal is still weak
-
-The retrieval passage-hit metric has ranged **25%–62.5%** across otherwise-
-identical historical runs — a band wider than most of the real engineering
-improvements this project has ever measured. So:
-
-> A single run's retrieval score moving up or down cannot, by itself, be
-> read as the system having genuinely improved or regressed.
-
-The project isolates specific mechanisms deterministically instead, via
-`probe_retrieval.py`, `probe_truncation.py`, and `probe_year_scope.py` —
-checking, for example, whether the right chunk still reaches the top-k
-window, whether a chunk gets silently truncated by the embedding model's
-token limit, and whether the fiscal-year filter actually narrows results
-to the correct filing.
-
-These probes are strongly deterministic about the specific mechanism each
-one names. But it has to be said plainly:
-
-> They prove the mechanism each probe covers is working. They do not prove
-> the overall quality of retrieval as a whole.
-
-Retrieval therefore remains the comparatively weakest-measured part of the
-current evaluation suite.
-
-## 7.6 Same-model LLM-judge bias is still unresolved
+## 7.5 Same-model LLM-judge bias is still unresolved
 
 Some qualitative retrieval and comparison-question scoring still uses an
 LLM judge, and that judge shares a model family with the agent's own
@@ -207,7 +182,7 @@ methodology limitation**. Until it is resolved, LLM-judged metrics should
 be treated as supporting evidence — not given the same weight as
 deterministic numeric or probe results.
 
-## 7.7 Data-coverage boundary: absent from the database ≠ undisclosed by the SEC
+## 7.6 Data-coverage boundary: absent from the database ≠ undisclosed by the SEC
 
 `financial_facts` is not a full mirror of a company's SEC XBRL data. The
 ingestion pipeline only maps a chosen set of `us-gaap` tags to this
@@ -233,7 +208,7 @@ percentage of *Qorvo's* revenue comes from Apple. This is not a retrieval
 failure. It is that **the evidence, by construction, only faces one
 direction.**
 
-## 7.8 A reproducible snapshot is not the same as a re-runnable extraction pipeline
+## 7.7 A reproducible snapshot is not the same as a re-runnable extraction pipeline
 
 This is one of the most important reproducibility boundaries in the
 current data pipeline.
@@ -268,7 +243,7 @@ produces, deterministically, the same final artifact.
 The current system satisfies the first. It does not yet satisfy the
 second.
 
-## 7.9 A recurring engineering failure pattern: hardcoded inventory drift
+## 7.8 A recurring engineering failure pattern: hardcoded inventory drift
 
 Beyond specific feature limitations, this project's development history
 has repeatedly hit one more general engineering problem:
@@ -318,14 +293,13 @@ The project has settled on two general responses to this pattern:
 second strategy — and the closest thing this chapter has to a checkpoint
 you can run.
 
-## 7.10 Current risk status
+## 7.9 Current risk status
 
 | Issue | Type | Current status | Existing mitigation | Residual boundary |
 |---|---|---|---|---|
 | Company/year binding errors | Agent correctness | **Detected, not fully blocked** | `misbound_inputs` | Other semantic-binding errors can still slip through |
 | Model invents an unregistered formula | Agent correctness | **Detected, residual risk accepted** | `authority:none` warning | A wrong formula can still reach the user |
 | Multi-turn fiscal year gets overridden | Context | **Open problem** | Structured context carry | Not yet enforced at the tool-parameter layer |
-| High retrieval-metric variance | Evaluation | **Mitigated, not resolved** | Deterministic probes | Overall retrieval quality still carries noise |
 | Same-model LLM judge | Evaluation | **Open problem** | None yet | Heterogeneous-judge cross-validation not done |
 | Limited XBRL canonical-schema coverage | Data coverage | **Design boundary** | Refusal wording distinguishes unavailable vs. undisclosed | Some real disclosures never reach SQL |
 | Supplier-side evidence can't answer customer-side procurement questions | Evidence scope | **Design boundary** | Router refuses directly | Current data cannot fill this gap |

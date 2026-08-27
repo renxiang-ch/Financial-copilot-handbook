@@ -108,7 +108,7 @@ not assumed, by re-running candidate extraction against all 54 filings both
 before and after the fix and diffing the results: a narrow-looking parsing
 assumption with wide, silent reach once actually measured. This same fact
 is why §3.5 below draws a hard line between "reproducible" and
-"re-runnable" for this pipeline, and it's the concrete case ch.07 §7.8
+"re-runnable" for this pipeline, and it's the concrete case ch.07 §7.7
 uses to make that distinction land.
 
 ## 3.3 Embeddings + retrieval
@@ -132,10 +132,12 @@ default — measured to carry almost none of the golden citations the eval
 set checks for, while contributing disproportionately to over-length chunks
 that get silently truncated by the embedding model's 512-token window) and
 `fiscal_year` (scopes retrieval to a specific filing year when the question
-names one, falling back to unscoped search for trend-style questions that
-need to see every year). Both are documented, deliberate narrowings of what
-`retrieve_text` searches, each with its own measured cost stated above
-rather than deferred elsewhere.
+names one; searches unscoped, across every year, for trend-style questions
+that need to see all of them; otherwise — a question that names no year and
+isn't trend-style, the common case — scopes to the company's most recent
+filing, and says so in the result). Both are documented, deliberate
+narrowings of what `retrieve_text` searches, each with its own measured
+cost stated above rather than deferred elsewhere.
 
 ## 3.4 Supply-chain edge extraction
 

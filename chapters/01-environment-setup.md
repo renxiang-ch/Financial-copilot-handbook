@@ -148,12 +148,8 @@ $env:PYTHONUTF8="1"; uv run --active python -m copilot.eval.harness --out /tmp/c
 > `cp1252` codec, which raises an encoding error on those characters without
 > this flag.
 
-**Pass criteria**: Tier-1/Tier-2/input-fetch/refusal accuracy at 100% and
-overall accuracy in the high 80s — see Appendix B for the exact current
-numbers and, importantly, which of these figures is a fixed target versus a
-noise band. A retrieval-accuracy figure noticeably below its historical band
-(25–62.5%) is **not** automatically a broken setup — read ch.05 §5.1 and
-§5.3 before concluding something is wrong. If Tier-1/Tier-2/refusal are
-anything less than 100%, stop here and re-check ch.01 §1.3's fingerprint
-match before moving on — the environment, not the agent, is the more likely
-cause this early.
+**Pass criteria**: Tier-1/Tier-2/input-fetch/refusal/retrieval accuracy all
+at 100%, overall 100.0% — see Appendix B for the exact current numbers. If
+any of these are less than 100%, stop here and re-check ch.01 §1.3's
+fingerprint match before moving on — the environment, not the agent, is the
+more likely cause this early.

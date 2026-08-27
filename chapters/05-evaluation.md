@@ -33,8 +33,8 @@ flowchart TD
 ```
 
 The probe branch exists *because* the harness branch has real limits: this
-project's own retrieval and multi-turn metrics have noise bands wide enough
-to swallow most real improvements (§5.3), so a probe isolates the specific
+project's own multi-turn metric has a noise band wide enough to swallow
+most real improvements (§5.3), so a probe isolates the specific
 mechanism deterministically instead of gambling on one LLM-judged run.
 Ablations have the same problem one level up — §5.5's multi-turn example
 needed five repeated runs before the true effect separated from noise at
@@ -48,7 +48,7 @@ older note:
 
 | Set | Items | What it tests |
 |---|---:|---|
-| `eval_set.json` (v1.3) | 33 (3 retired) | The frozen core regression set — Tier-1 direct lookup, Tier-2 multi-step (margins/YoY), retrieval passage-hit, refusal correctness |
+| `eval_set.json` (v1.4) | 33 (3 retired) | The frozen core regression set — Tier-1 direct lookup, Tier-2 multi-step (margins/YoY), retrieval passage-hit, refusal correctness |
 | `eval_set_tier3.json` (v1.0) | 8 | Cross-company graph reasoning (`graph_query`) — the questions ch.05 §5.5's ablation is run against |
 | `eval_set_v2.json` (v2.1) | 13 (2 held-out) | A designed second-generation set — hard numeric edge cases (near-zero CAGR, negative margins), a unit trap, synonym-stress pairs, an over-refusal probe, and a grounded-scoring item that scores by outcome rather than by which tool was used |
 | `eval_set_router.json` (v1.0) | 12 | Deterministic tool-routing probe questions |
@@ -80,26 +80,19 @@ its premise stopped being true" (a data-integrity fix, logged).
   happens to match — catching a right-answer-wrong-reasoning case a
   final-number-only check would miss.
 - **The `grounded` scoring type scores by outcome, not by which tool
-  produced it** — deliberately, after a documented false negative: a
-  question the router correctly redirected from `retrieve_text` to
-  `graph_query` (a better decision) was scored as a miss by the original
-  harness, because the scoring only credited `retrieve_text` hits. Any
-  routing improvement that changes *which* tool answers a question
-  correctly will keep tripping this exact false negative wherever a set
-  still scores by tool path instead of by outcome — a live methodological
-  risk to check before trusting a "retrieval regressed" reading, not just a
-  historical footnote.
+  produced it** — a question can be answered correctly through more than
+  one tool path, and this scoring type credits the answer regardless of
+  which one produced it.
+- **The retrieval passage-hit check credits evidence from both
+  `retrieve_text` chunks and `graph_query` edges' `source_text`** — either
+  is a valid source for the same underlying disclosure sentence.
 
 ## 5.3 Zero-cost deterministic probes
 
-Not a historical footnote — the strongest methodological content in this
-project, and a direct answer to the problem in §5.2's last bullet. Several
-of this project's own metrics have wide historical noise bands (retrieval
-passage-hit has ranged 25–62.5% across otherwise-identical runs) —
-wider than most real improvements this project has ever measured. An
-LLM-judged eval run inside that noise band cannot distinguish "this change
-helped" from "this run got lucky." The five `eval/probe_*.py` modules exist
-to isolate a specific mechanism deterministically, at zero LLM cost, when
+The strongest methodological content in this project. An LLM-judged eval
+run cannot always distinguish "this change helped" from "this run got
+lucky." The five `eval/probe_*.py` modules exist to isolate a specific
+mechanism deterministically, at zero LLM cost, when
 the eval set itself lacks the resolution to:
 
 | Probe | Isolates |
@@ -127,11 +120,7 @@ tables at run time) alongside the scores.
 > a score delta measured across two different database states is not a
 > valid before/after comparison, and nothing else in the file will tell you
 > this happened unless you check.
-See Appendix B for the current expected-value table and, critically, which
-figures in it are fixed targets versus reported noise bands — several
-metrics here have been saturated at 100% for months and carry little signal
-turn to turn, while others (retrieval) have never been anywhere near
-saturated and should not be read as if they were.
+See Appendix B for the current expected-value table.
 
 ## 5.5 Ablations
 
@@ -169,8 +158,8 @@ PYTHONUTF8=1 uv run --active python -m copilot.eval.harness --out /tmp/eval.json
 uv run --active python -m copilot.eval.harness_tier3 --no-graph --out /tmp/no_graph.json
 ```
 
-**Pass criteria**: (1) all pass, (2) 20/20, (3) matches Appendix B's bands
-(numeric/refusal at 100%, retrieval inside 25–62.5%), (4) noticeably worse
+**Pass criteria**: (1) all pass, (2) 20/20, (3) matches Appendix B's numbers
+(numeric/refusal/retrieval all 100%), (4) noticeably worse
 than the graph-augmented default — a *low* score here is what "pass" looks
 like, since the point of this specific ablation is to confirm the baseline
 is genuinely weaker without the graph layer, not that it's good.

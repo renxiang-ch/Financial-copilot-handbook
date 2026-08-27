@@ -6,9 +6,9 @@ target only where the harness is actually deterministic at that number
 Where a metric has a documented noise band, report the band, not a point
 value — a point value invites a reader to treat a within-noise fluctuation
 as a broken reproduction. All numbers below were read from the live database
-and from `data/results/eval_results_p3_regression.json` /
+and from `data/results/eval_results_v1.4_final2.json` /
 `eval_results_t3_p3_regression.json` (the most recent full regression pair
-on record at the time of writing) on 2026-08-25 — re-check against fresh
+on record at the time of writing) on 2026-08-27 — re-check against fresh
 result files before trusting these past that date.
 
 ## Database fingerprint (after `seed --load`)
@@ -31,7 +31,7 @@ From `data/seed/manifest.json`:
 match `text_chunks` after `embed_chunks` (ch.01 §1.4) completes — a mismatch
 here before that step is expected, not an error.
 
-## Frozen eval set (`eval_set.json`, v1.3, 30 scored + 3 retired)
+## Frozen eval set (`eval_set.json`, v1.4, 30 scored + 3 retired)
 
 | Metric | Expected |
 |---|---|
@@ -39,17 +39,8 @@ here before that step is expected, not an error.
 | Tier-2 accuracy | 100% |
 | Tier-2 input fetch | 100% |
 | Refusal accuracy | 100% |
-| Retrieval passage hit | 25–62.5% (band, not a point — last measured 42.9%) |
-| Overall | 86.7% at last measurement |
-
-> **Retrieval passage hit is a band, not a point value** — it has run
-> 25–62.5% across otherwise-identical runs historically. A number inside
-> that band is not evidence of anything having broken; see ch.05 §5.1/§5.3
-> before investigating a "regression" here.
->
-> **"Overall" moves with retrieval's noise**, since the numeric and refusal
-> metrics above it are saturated at 100%. Don't read a change in "Overall"
-> as informative on its own — check which sub-metric actually moved first.
+| Retrieval passage hit | 100% |
+| Overall | 100.0% at last measurement |
 
 ## Tier-3 (`eval_set_tier3.json`, 8 items)
 

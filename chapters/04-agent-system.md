@@ -63,21 +63,15 @@ code.
 | `query_financials(ticker, metric, fiscal_year)` | Direct SQL lookup against `financial_facts` |
 | `list_metrics(ticker)` | Discover which metrics/years exist for a company before querying |
 | `compute(expression, variables)` | Sandboxed arithmetic (AST-whitelisted, no `__import__`, exponent depth capped) — the only place a number is allowed to be derived rather than looked up |
-| `retrieve_text(query, ticker, fiscal_year)` | Hybrid retrieval over filing prose/tables (§3.3) |
+| `retrieve_text(ticker, fiscal_year)` | Hybrid retrieval over filing prose/tables, searched with the user's own question text rather than a model-written query (§3.3) |
 | `graph_query(customer, supplier, fiscal_year, depth)` | Recursive-CTE traversal over `supply_edges` |
 
-All three ticker-taking tools (`query_financials`, `list_metrics`,
-`graph_query`) route ticker resolution through a shared helper
-(`_resolve_ticker`) that distinguishes "this ticker doesn't exist" from
-"this ticker exists but has no row for this query" and offers a
+All four ticker-taking tools (`query_financials`, `list_metrics`,
+`retrieve_text`, `graph_query`) route ticker resolution through a shared
+helper (`_resolve_ticker`) that distinguishes "this ticker doesn't exist"
+from "this ticker exists but has no row for this query" and offers a
 `difflib`-based correction (`SKWS` → `SWKS`) rather than reporting a
 misspelling as a fact about the world.
-
-> **The failure this closed**: before `_resolve_ticker` existed, a typo'd
-> ticker (`SKWS` instead of `SWKS`) simply returned "no data found" —
-> indistinguishable from "this company genuinely has no data for this
-> query." The agent (and a reader trusting its refusal) had no way to tell
-> a spelling mistake from a real coverage gap.
 
 ## 4.2 Slots — one parser, several consumers
 

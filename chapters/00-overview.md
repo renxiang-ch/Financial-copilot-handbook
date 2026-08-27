@@ -127,7 +127,7 @@ Three things worth noticing about this trace, each expanded in ch.04:
 | XBRL financial facts | 38,966, across 24 canonical metric labels |
 | Text chunks | 16,342 (11,990 prose / 4,352 table), all embedded |
 | Supply-chain edges | 128 total, 103 named |
-| Frozen eval set (`eval_set.json`, v1.3, 30 scored + 3 retired) | Tier-1/Tier-2/input-fetch/refusal all 100%; retrieval passage hit 42.9% (noise band, see ch.05); overall 86.7% |
+| Frozen eval set (`eval_set.json`, v1.4, 30 scored + 3 retired) | Tier-1/Tier-2/input-fetch/refusal/retrieval passage hit all 100%; overall 100.0% |
 | Tier-3 graph ablation (`eval_set_tier3.json`, 8 items) | graph-augmented 100% vs. `--no-graph` baseline 12.5% — **+87.5pp**, the graph layer's measured contribution |
 | Unit tests | 128 |
 
